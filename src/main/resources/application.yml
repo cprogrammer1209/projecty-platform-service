@@ -19,12 +19,13 @@ server:
 projecty:
   frontend-url: http://localhost:4200
   cors:
-    allowed-origins: http://localhost:4200
+    allowed-origins: http://localhost:4200, http://localhost:4300
   mail:
     from: "ProjectY <no-reply@projecty.local>"
   token:
     issuer: http://localhost:8081
     audience: projecty-api
+    admin-audience: projecty-admin
     access-token-ttl: 15m
   session:
     idle-timeout: 7d
@@ -38,3 +39,18 @@ projecty:
     lockout-duration: 15m
   portal:
     max-portals-per-user: 20
+  admin:
+    idle-timeout: 1h
+    absolute-timeout: 12h
+    refresh-cookie-secure: false # true outside local development (requires HTTPS)
+    lockout-max-attempts: 5
+    lockout-window: 15m
+    lockout-duration: 15m
+    # First platform admin, created at startup when none exists. Local development values only:
+    # set PROJECTY_ADMIN_BOOTSTRAP_EMAIL / _PASSWORD elsewhere.
+    bootstrap:
+      email: admin@projecty.local
+      password: projecty-admin-dev
+      full-name: Platform Admin
+  impersonation:
+    code-ttl: 2m

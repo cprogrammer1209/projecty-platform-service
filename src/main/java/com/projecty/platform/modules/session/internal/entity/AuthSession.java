@@ -42,6 +42,11 @@ public class AuthSession {
 
 	private Instant revokedAt;
 
+	/**
+	 * Set when a platform admin opened this session to act as the user (support impersonation).
+	 */
+	private UUID impersonationId;
+
 	public AuthSession(UUID userId, String userAgent, String ip, Instant now, Duration idleTimeout,
 			Duration absoluteTimeout) {
 		this.userId = userId;
@@ -50,6 +55,21 @@ public class AuthSession {
 		this.createdAt = now;
 		this.absoluteExpiresAt = now.plus(absoluteTimeout);
 		touch(now, idleTimeout);
+	}
+
+	/**
+	 * A support session: it never outlives the impersonation's end time.
+	 */
+	public static AuthSession impersonated(UUID userId, UUID impersonationId, Instant impersonationExpiresAt,
+			String userAgent, String ip, Instant now, Duration idleTimeout) {
+		AuthSession session = new AuthSession(userId, userAgent, ip, now, idleTimeout,
+				Duration.between(now, impersonationExpiresAt));
+		session.impersonationId = impersonationId;
+		return session;
+	}
+
+	public boolean isImpersonated() {
+		return this.impersonationId != null;
 	}
 
 	public boolean isUsable(Instant now) {

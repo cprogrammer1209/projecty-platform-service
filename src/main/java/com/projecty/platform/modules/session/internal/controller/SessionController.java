@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import com.projecty.platform.common.dto.AppResponse;
 import com.projecty.platform.modules.session.internal.constants.SessionConstants;
 import com.projecty.platform.modules.session.internal.dto.AccessTokenResponseDTO;
+import com.projecty.platform.modules.session.internal.dto.ImpersonationRedeemRequestDTO;
 import com.projecty.platform.modules.session.internal.dto.LoginRequestDTO;
 import com.projecty.platform.modules.session.internal.dto.SessionTokensDTO;
 import com.projecty.platform.modules.session.internal.helper.RefreshCookieHelper;
@@ -21,8 +22,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Login, refresh and logout. Login and refresh return the access token in the body and set the refresh token
- * as an HttpOnly cookie.
+ * Login, refresh and logout, plus starting and ending support sessions. Login, refresh and redeem return the
+ * access token in the body and set the refresh token as an HttpOnly cookie.
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -58,6 +59,25 @@ public class SessionController {
 	public ResponseEntity<AppResponse<Void>> logout(
 			@CookieValue(name = SessionConstants.REFRESH_COOKIE_NAME, required = false) String refreshToken) {
 		this.sessionService.logout(refreshToken);
+		return ResponseEntity.ok()
+			.header(HttpHeaders.SET_COOKIE, this.refreshCookieHelper.clear().toString())
+			.body(AppResponse.ok());
+	}
+
+	/**
+	 * Opens a support session from the admin console's launch link.
+	 */
+	@PostMapping("/impersonation/redeem")
+	public ResponseEntity<AppResponse<AccessTokenResponseDTO>> redeemImpersonation(
+			@Valid @RequestBody ImpersonationRedeemRequestDTO request, HttpServletRequest http) {
+		return withCookie(this.sessionService.redeemImpersonation(request.code(),
+				http.getHeader(HttpHeaders.USER_AGENT), http.getRemoteAddr()));
+	}
+
+	@PostMapping("/impersonation/end")
+	public ResponseEntity<AppResponse<Void>> endImpersonation(
+			@CookieValue(name = SessionConstants.REFRESH_COOKIE_NAME, required = false) String refreshToken) {
+		this.sessionService.endImpersonation(refreshToken);
 		return ResponseEntity.ok()
 			.header(HttpHeaders.SET_COOKIE, this.refreshCookieHelper.clear().toString())
 			.body(AppResponse.ok());

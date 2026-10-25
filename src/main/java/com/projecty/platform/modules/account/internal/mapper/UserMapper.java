@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
 public class UserMapper {
 
 	public UserResponseDTO toResponse(AppUser user) {
-		return new UserResponseDTO(user.getId(), user.getEmail(), user.getFullName(), user.isActive());
+		return new UserResponseDTO(user.getId(), user.getEmail(), user.getFullName(), user.isActive(),
+				user.getLastLoginAt());
 	}
 
 	public MeResponseDTO toMe(AppUser user, List<PortalMembershipResponseDTO> portals) {

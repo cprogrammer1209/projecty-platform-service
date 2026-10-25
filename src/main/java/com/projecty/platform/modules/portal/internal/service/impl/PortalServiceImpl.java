@@ -9,12 +9,15 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.projecty.platform.common.exception.AppException;
+import com.projecty.platform.modules.portal.api.dto.PortalMemberResponseDTO;
 import com.projecty.platform.modules.portal.api.dto.PortalMembershipResponseDTO;
+import com.projecty.platform.modules.portal.api.dto.PortalSummaryResponseDTO;
 import com.projecty.platform.modules.portal.internal.config.PortalProperties;
 import com.projecty.platform.modules.portal.internal.constants.PortalConstants;
 import com.projecty.platform.modules.portal.internal.dto.PortalCreateDTO;
 import com.projecty.platform.modules.portal.internal.dto.PortalResponseDTO;
 import com.projecty.platform.modules.portal.internal.dto.SlugAvailabilityResponseDTO;
+import com.projecty.platform.modules.portal.internal.entity.MemberStatus;
 import com.projecty.platform.modules.portal.internal.entity.Portal;
 import com.projecty.platform.modules.portal.internal.entity.PortalMember;
 import com.projecty.platform.modules.portal.internal.entity.PortalProfile;
@@ -61,6 +64,30 @@ public class PortalServiceImpl implements PortalService {
 	@Transactional(readOnly = true)
 	public List<PortalMembershipResponseDTO> findMemberships(UUID userId) {
 		return this.memberRepository.findMemberships(userId);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<PortalSummaryResponseDTO> findAllPortals() {
+		return this.portalRepository.findAllSummaries();
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public Optional<PortalSummaryResponseDTO> findPortal(UUID portalId) {
+		return this.portalRepository.findSummary(portalId);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<PortalMemberResponseDTO> findMembers(UUID portalId) {
+		return this.memberRepository.findMembers(portalId);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public boolean isActiveMember(UUID portalId, UUID userId) {
+		return this.memberRepository.existsByPortalIdAndUserIdAndStatus(portalId, userId, MemberStatus.ACTIVE);
 	}
 
 	@Override

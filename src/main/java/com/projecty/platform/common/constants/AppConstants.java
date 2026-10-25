@@ -1,9 +1,21 @@
 package com.projecty.platform.common.constants;
 
 /**
- * App-wide constants: error codes not owned by any module.
+ * App-wide constants: error codes and security roles not owned by any module.
  */
 public final class AppConstants {
+
+	/**
+	 * Role of a customer access token (audience {@code projecty-api}).
+	 */
+	public static final String ROLE_USER = "USER";
+
+	/**
+	 * Role of an admin console access token (audience {@code projecty-admin}).
+	 */
+	public static final String ROLE_PLATFORM_ADMIN = "PLATFORM_ADMIN";
+
+	public static final String ROLE_PREFIX = "ROLE_";
 
 	public static final String ERROR_VALIDATION_FAILED = "VALIDATION_FAILED";
 

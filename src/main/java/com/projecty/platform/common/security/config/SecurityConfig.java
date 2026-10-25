@@ -1,6 +1,7 @@
 package com.projecty.platform.common.security.config;
 
 import com.projecty.platform.common.config.AppProperties;
+import com.projecty.platform.common.constants.AppConstants;
 import com.projecty.platform.common.security.handler.RestAccessDeniedHandler;
 import com.projecty.platform.common.security.handler.RestAuthenticationEntryPoint;
 
@@ -22,7 +23,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  * {@code JwtDecoder} bean comes from the token module.
  *
  * CSRF protection is off: API calls authenticate with a bearer header, which browsers never attach on their
- * own. The only cookie (the refresh token) is HttpOnly, SameSite=Strict and scoped to /api/auth.
+ * own. The refresh cookies are HttpOnly, SameSite=Strict and scoped to /api/auth and /api/admin/auth.
+ *
+ * Customer tokens carry role USER and admin console tokens role PLATFORM_ADMIN (mapped from the audience by
+ * the token module), so neither kind of token works on the other's endpoints.
  */
 @Configuration
 public class SecurityConfig {
@@ -33,11 +37,17 @@ public class SecurityConfig {
 		return http.csrf((csrf) -> csrf.disable())
 			.cors(Customizer.withDefaults())
 			.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.authorizeHttpRequests((auth) -> auth.requestMatchers("/api/auth/**")
+			.authorizeHttpRequests((auth) -> auth
+				.requestMatchers("/api/auth/**", "/api/admin/auth/login", "/api/admin/auth/refresh",
+						"/api/admin/auth/logout")
 				.permitAll()
 				.requestMatchers(HttpMethod.GET, "/.well-known/jwks.json", "/actuator/health/**", "/v3/api-docs/**",
 						"/swagger-ui/**", "/swagger-ui.html")
 				.permitAll()
+				.requestMatchers("/api/admin/**")
+				.hasRole(AppConstants.ROLE_PLATFORM_ADMIN)
+				.requestMatchers("/api/**")
+				.hasRole(AppConstants.ROLE_USER)
 				.anyRequest()
 				.authenticated())
 			.oauth2ResourceServer((oauth2) -> oauth2.jwt(Customizer.withDefaults())

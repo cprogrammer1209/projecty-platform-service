@@ -3,7 +3,9 @@ package com.projecty.platform.modules.portal.internal.repository;
 import java.util.List;
 import java.util.UUID;
 
+import com.projecty.platform.modules.portal.api.dto.PortalMemberResponseDTO;
 import com.projecty.platform.modules.portal.api.dto.PortalMembershipResponseDTO;
+import com.projecty.platform.modules.portal.internal.entity.MemberStatus;
 import com.projecty.platform.modules.portal.internal.entity.PortalMember;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,5 +28,15 @@ public interface PortalMemberRepository extends JpaRepository<PortalMember, Port
 			and m.status = com.projecty.platform.modules.portal.internal.entity.MemberStatus.ACTIVE
 			order by p.name""")
 	List<PortalMembershipResponseDTO> findMemberships(UUID userId);
+
+	@Query("""
+			select new com.projecty.platform.modules.portal.api.dto.PortalMemberResponseDTO(
+				m.userId, cast(m.profile as string), cast(m.status as string), m.joinedAt)
+			from PortalMember m
+			where m.portalId = :portalId
+			order by m.joinedAt""")
+	List<PortalMemberResponseDTO> findMembers(UUID portalId);
+
+	boolean existsByPortalIdAndUserIdAndStatus(UUID portalId, UUID userId, MemberStatus status);
 
 }

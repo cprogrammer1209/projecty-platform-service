@@ -2,6 +2,8 @@ package com.projecty.platform.modules.account.internal.service.impl;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -75,6 +77,12 @@ public class UserServiceImpl implements UserService {
 	@Transactional(readOnly = true)
 	public Optional<UserResponseDTO> findById(UUID userId) {
 		return this.repository.findById(userId).map(this.userMapper::toResponse);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<UserResponseDTO> findByIds(Collection<UUID> userIds) {
+		return this.repository.findAllById(userIds).stream().map(this.userMapper::toResponse).toList();
 	}
 
 	@Override
