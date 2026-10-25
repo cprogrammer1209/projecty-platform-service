@@ -65,8 +65,11 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Every new feature follows [ARCHITECTURE.md](ARCHITECTURE.md). No exceptions without asking.**
 
+**Package by feature: one feature, one module.** All of a feature's code lives in its module: controllers (every endpoint of the feature, whatever its URL), services, entities, repositories, DTOs, mappers, config and constants. Anything owned by another module is used only through that module's `api/` ports. If a port is missing a method, add it to that module's `api/` and implement it there; never move the feature's code into the other module. Break reverse dependencies with an `api/event/` event instead of a cycle. Put shared HTTP and security plumbing in `common/`. (Reference: `impersonation` owns `/api/auth/impersonation/*`, uses `session/api` to open and end sessions, and hears about expiry via `SupportSessionExpiredEvent`.)
+
 Before writing code for a feature:
 - Decide which module owns it (new or existing), and what goes in `api/` (interfaces + DTOs only) versus `internal/`.
+- List the feature's endpoints and confirm every one lands in that module. If one seems to belong elsewhere, stop and ask.
 - Use the exact layout and names: `{Entity}LookUpService` / `{Entity}WriteService`, `{Entity}Service` + `impl/{Entity}ServiceImpl`, `{Entity}CreateDTO`, `{Entity}Mapper`, `{Module}Constants`.
 
 While writing it:

@@ -5,8 +5,8 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * SEC-BR-03 session limits. {@code refreshCookieSecure} must be true outside local development (HTTPS only).
+ * SEC-BR-03 session limits.
  */
 @ConfigurationProperties("projecty.session")
-public record SessionProperties(Duration idleTimeout, Duration absoluteTimeout, boolean refreshCookieSecure) {
+public record SessionProperties(Duration idleTimeout, Duration absoluteTimeout) {
 }

@@ -27,11 +27,24 @@ public final class ImpersonationConstants {
 	 */
 	public static final String LAUNCH_PAGE = "impersonate";
 
+	public static final String TOKEN_TYPE = "Bearer";
+
+	/**
+	 * Audit reasons for the end of a support session.
+	 */
+	public static final String END_REASON_BY_ADMIN = "Ended from the support session";
+
+	public static final String END_REASON_EXPIRED = "Session time ran out";
+
 	public static final String ERROR_INVALID_REQUEST = "IMPERSONATION_INVALID";
 
 	public static final String ERROR_TARGET_NOT_ELIGIBLE = "IMPERSONATION_TARGET_NOT_ELIGIBLE";
 
 	public static final String ERROR_LINK_INVALID = "IMPERSONATION_LINK_INVALID";
+
+	public static final String ERROR_NOT_IMPERSONATING = "NOT_IMPERSONATING";
+
+	public static final String MESSAGE_NOT_IMPERSONATING = "This is not a support session.";
 
 	public static final String MESSAGE_INVALID_DURATION = "Choose one of the offered session durations.";
 

@@ -8,8 +8,8 @@ import com.projecty.platform.modules.session.internal.dto.SessionTokensDTO;
  * issues a new one. If a consumed token shows up again, someone has a copy of it, so the whole session is
  * revoked.
  *
- * Support sessions (impersonation) are ordinary sessions of the target user that also say which admin is
- * acting; they end when the impersonation ends.
+ * Support sessions (opened by the impersonation module through {@code SessionWriteService}) are ordinary
+ * sessions of the target user that also say which admin is acting; they end at the impersonation's end time.
  */
 public interface SessionService extends SessionWriteService {
 
@@ -18,15 +18,5 @@ public interface SessionService extends SessionWriteService {
 	SessionTokensDTO refresh(String refreshToken);
 
 	void logout(String refreshToken);
-
-	/**
-	 * Opens a support session for the target user of an impersonation launch code.
-	 */
-	SessionTokensDTO redeemImpersonation(String code, String userAgent, String ip);
-
-	/**
-	 * Ends the support session tied to this refresh token.
-	 */
-	void endImpersonation(String refreshToken);
 
 }

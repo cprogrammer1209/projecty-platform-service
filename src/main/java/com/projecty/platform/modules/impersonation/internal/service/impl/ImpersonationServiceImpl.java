@@ -13,16 +13,17 @@ import com.projecty.platform.modules.admin.api.AdminLookUpService;
 import com.projecty.platform.modules.admin.api.dto.AdminResponseDTO;
 import com.projecty.platform.modules.audit.api.AuditWriteService;
 import com.projecty.platform.modules.audit.api.dto.AuditEventCreateDTO;
-import com.projecty.platform.modules.impersonation.api.dto.ImpersonationResponseDTO;
 import com.projecty.platform.modules.impersonation.internal.config.ImpersonationProperties;
 import com.projecty.platform.modules.impersonation.internal.constants.ImpersonationConstants;
 import com.projecty.platform.modules.impersonation.internal.dto.ImpersonationCreateDTO;
 import com.projecty.platform.modules.impersonation.internal.dto.ImpersonationStartResponseDTO;
 import com.projecty.platform.modules.impersonation.internal.entity.Impersonation;
-import com.projecty.platform.modules.impersonation.internal.mapper.ImpersonationMapper;
 import com.projecty.platform.modules.impersonation.internal.repository.ImpersonationRepository;
 import com.projecty.platform.modules.impersonation.internal.service.ImpersonationService;
 import com.projecty.platform.modules.portal.api.PortalLookUpService;
+import com.projecty.platform.modules.session.api.SessionWriteService;
+import com.projecty.platform.modules.session.api.dto.IssuedSessionDTO;
+import com.projecty.platform.modules.session.api.dto.SupportSessionCreateDTO;
 import com.projecty.platform.modules.shared.constants.AuditEventConstants;
 import com.projecty.platform.modules.shared.helper.OpaqueTokenHelper;
 
@@ -31,8 +32,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Composite service: owns impersonation requests; checks the target through the portal and account modules,
- * names the admin through the admin module, and writes every step to the audit log.
+ * Composite service: owns impersonation requests. Checks the target through the portal and account modules,
+ * names the admin through the admin module, opens and ends the session through the session module, and
+ * writes every step to the audit log.
  */
 @Service
 public class ImpersonationServiceImpl implements ImpersonationService {
@@ -45,9 +47,9 @@ public class ImpersonationServiceImpl implements ImpersonationService {
 
 	private final AdminLookUpService adminLookUpService;
 
-	private final AuditWriteService auditWriteService;
+	private final SessionWriteService sessionWriteService;
 
-	private final ImpersonationMapper mapper;
+	private final AuditWriteService auditWriteService;
 
 	private final ImpersonationProperties properties;
 
@@ -57,14 +59,14 @@ public class ImpersonationServiceImpl implements ImpersonationService {
 
 	public ImpersonationServiceImpl(ImpersonationRepository repository, PortalLookUpService portalLookUpService,
 			UserLookUpService userLookUpService, AdminLookUpService adminLookUpService,
-			AuditWriteService auditWriteService, ImpersonationMapper mapper, ImpersonationProperties properties,
-			AppProperties appProperties, Clock clock) {
+			SessionWriteService sessionWriteService, AuditWriteService auditWriteService,
+			ImpersonationProperties properties, AppProperties appProperties, Clock clock) {
 		this.repository = repository;
 		this.portalLookUpService = portalLookUpService;
 		this.userLookUpService = userLookUpService;
 		this.adminLookUpService = adminLookUpService;
+		this.sessionWriteService = sessionWriteService;
 		this.auditWriteService = auditWriteService;
-		this.mapper = mapper;
 		this.properties = properties;
 		this.appProperties = appProperties;
 		this.clock = clock;
@@ -81,7 +83,8 @@ public class ImpersonationServiceImpl implements ImpersonationService {
 		}
 		UserResponseDTO target = eligibleTarget(request.portalId(), request.targetUserId())
 			.orElseThrow(ImpersonationServiceImpl::notEligible);
-		AdminResponseDTO admin = this.adminLookUpService.findById(adminId).orElseThrow(ImpersonationServiceImpl::notEligible);
+		AdminResponseDTO admin = this.adminLookUpService.findById(adminId)
+			.orElseThrow(ImpersonationServiceImpl::notEligible);
 
 		String code = OpaqueTokenHelper.generate();
 		Impersonation impersonation = this.repository.save(new Impersonation(adminId, request.portalId(),
@@ -103,7 +106,7 @@ public class ImpersonationServiceImpl implements ImpersonationService {
 
 	@Override
 	@Transactional
-	public ImpersonationResponseDTO redeem(String code) {
+	public IssuedSessionDTO startSupportSession(String code, String userAgent, String ip) {
 		Instant now = this.clock.instant();
 		Impersonation impersonation = Optional.ofNullable(code)
 			.filter((value) -> !value.isBlank())
@@ -117,7 +120,18 @@ public class ImpersonationServiceImpl implements ImpersonationService {
 		audit(AuditEventConstants.ACTION_IMPERSONATION_STARTED, impersonation, adminName, target.fullName(),
 				"Support session opened; ends "
 						+ ImpersonationConstants.AUDIT_TIME_FORMAT.format(impersonation.getExpiresAt()));
-		return this.mapper.toResponse(impersonation, adminName, target.fullName());
+		return this.sessionWriteService.openSupportSession(new SupportSessionCreateDTO(target.id(),
+				impersonation.getId(), impersonation.getAdminUserId(), adminName, impersonation.getExpiresAt(),
+				userAgent, ip));
+	}
+
+	@Override
+	@Transactional
+	public void endSupportSession(String refreshToken) {
+		UUID impersonationId = this.sessionWriteService.endSupportSession(refreshToken)
+			.orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, ImpersonationConstants.ERROR_NOT_IMPERSONATING,
+					ImpersonationConstants.MESSAGE_NOT_IMPERSONATING));
+		markEnded(impersonationId, ImpersonationConstants.END_REASON_BY_ADMIN);
 	}
 
 	@Override
@@ -128,14 +142,6 @@ public class ImpersonationServiceImpl implements ImpersonationService {
 			.ifPresent((impersonation) -> audit(AuditEventConstants.ACTION_IMPERSONATION_ENDED, impersonation,
 					adminName(impersonation.getAdminUserId()), targetName(impersonation.getTargetUserId()),
 					reason));
-	}
-
-	@Override
-	@Transactional(readOnly = true)
-	public Optional<ImpersonationResponseDTO> findById(UUID impersonationId) {
-		return this.repository.findById(impersonationId)
-			.map((impersonation) -> this.mapper.toResponse(impersonation, adminName(impersonation.getAdminUserId()),
-					targetName(impersonation.getTargetUserId())));
 	}
 
 	/**

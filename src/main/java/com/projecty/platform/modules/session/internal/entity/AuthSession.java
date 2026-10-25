@@ -43,9 +43,14 @@ public class AuthSession {
 	private Instant revokedAt;
 
 	/**
-	 * Set when a platform admin opened this session to act as the user (support impersonation).
+	 * Set when a platform admin opened this session to act as the user (support impersonation), together with
+	 * who the admin is, so tokens can name them without asking another module.
 	 */
 	private UUID impersonationId;
+
+	private UUID impersonatorAdminId;
+
+	private String impersonatorName;
 
 	public AuthSession(UUID userId, String userAgent, String ip, Instant now, Duration idleTimeout,
 			Duration absoluteTimeout) {
@@ -60,16 +65,25 @@ public class AuthSession {
 	/**
 	 * A support session: it never outlives the impersonation's end time.
 	 */
-	public static AuthSession impersonated(UUID userId, UUID impersonationId, Instant impersonationExpiresAt,
-			String userAgent, String ip, Instant now, Duration idleTimeout) {
+	public static AuthSession impersonated(UUID userId, UUID impersonationId, UUID adminId, String adminName,
+			Instant impersonationExpiresAt, String userAgent, String ip, Instant now, Duration idleTimeout) {
 		AuthSession session = new AuthSession(userId, userAgent, ip, now, idleTimeout,
 				Duration.between(now, impersonationExpiresAt));
 		session.impersonationId = impersonationId;
+		session.impersonatorAdminId = adminId;
+		session.impersonatorName = adminName;
 		return session;
 	}
 
 	public boolean isImpersonated() {
 		return this.impersonationId != null;
+	}
+
+	/**
+	 * A support session that reached its end time but was not revoked yet.
+	 */
+	public boolean isImpersonationOver(Instant now) {
+		return isImpersonated() && this.revokedAt == null && !now.isBefore(this.absoluteExpiresAt);
 	}
 
 	public boolean isUsable(Instant now) {

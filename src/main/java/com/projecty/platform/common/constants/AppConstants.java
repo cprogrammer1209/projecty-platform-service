@@ -17,6 +17,15 @@ public final class AppConstants {
 
 	public static final String ROLE_PREFIX = "ROLE_";
 
+	/**
+	 * The customer refresh token cookie. The browser sends it only to the auth endpoints.
+	 */
+	public static final String REFRESH_COOKIE_NAME = "py_refresh";
+
+	public static final String REFRESH_COOKIE_PATH = "/api/auth";
+
+	public static final String REFRESH_COOKIE_SAME_SITE = "Strict";
+
 	public static final String ERROR_VALIDATION_FAILED = "VALIDATION_FAILED";
 
 	public static final String ERROR_UNAUTHORIZED = "UNAUTHORIZED";

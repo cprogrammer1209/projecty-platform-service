@@ -14,7 +14,7 @@ import com.projecty.platform.external.mail.dto.EmailMessageDTO;
 import com.projecty.platform.external.mail.service.MailService;
 import com.projecty.platform.modules.account.internal.entity.EmailTokenPurpose;
 import com.projecty.platform.modules.account.internal.event.EmailTokenIssuedEvent;
-import com.projecty.platform.modules.session.internal.constants.SessionConstants;
+import com.projecty.platform.common.constants.AppConstants;
 import com.projecty.platform.modules.token.internal.service.SigningKeyService;
 import org.junit.jupiter.api.Test;
 
@@ -158,7 +158,7 @@ class AuthFlowIntegrationTests {
 		MvcResult result = this.mvc.perform(post("/api/auth/logout").cookie(session.refreshCookie()))
 			.andExpect(status().isOk())
 			.andReturn();
-		assertThat(result.getResponse().getCookie(SessionConstants.REFRESH_COOKIE_NAME).getMaxAge()).isZero();
+		assertThat(result.getResponse().getCookie(AppConstants.REFRESH_COOKIE_NAME).getMaxAge()).isZero();
 		this.mvc.perform(post("/api/auth/refresh").cookie(session.refreshCookie())).andExpect(status().isUnauthorized());
 	}
 
@@ -288,7 +288,7 @@ class AuthFlowIntegrationTests {
 
 	private static Session session(MvcResult result) throws Exception {
 		String accessToken = JsonPath.read(result.getResponse().getContentAsString(), "$.data.accessToken");
-		Cookie cookie = result.getResponse().getCookie(SessionConstants.REFRESH_COOKIE_NAME);
+		Cookie cookie = result.getResponse().getCookie(AppConstants.REFRESH_COOKIE_NAME);
 		assertThat(cookie).isNotNull();
 		assertThat(cookie.isHttpOnly()).isTrue();
 		return new Session(accessToken, cookie);

@@ -14,7 +14,7 @@ import com.projecty.platform.modules.account.internal.event.EmailTokenIssuedEven
 import com.projecty.platform.modules.admin.internal.constants.AdminConstants;
 import com.projecty.platform.modules.admin.internal.entity.AdminUser;
 import com.projecty.platform.modules.admin.internal.repository.AdminUserRepository;
-import com.projecty.platform.modules.session.internal.constants.SessionConstants;
+import com.projecty.platform.common.constants.AppConstants;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -173,7 +173,7 @@ class AdminImpersonationIntegrationTests {
 		String launchUrl = JsonPath.read(started.getResponse().getContentAsString(), "$.data.launchUrl");
 		String code = launchUrl.substring(launchUrl.indexOf("code=") + 5);
 
-		Session support = session(redeem(code).andExpect(status().isOk()).andReturn(), SessionConstants.REFRESH_COOKIE_NAME);
+		Session support = session(redeem(code).andExpect(status().isOk()).andReturn(), AppConstants.REFRESH_COOKIE_NAME);
 		String tokenClaims = claims(support.accessToken());
 		assertThat((String) JsonPath.read(tokenClaims, "$.sub")).isEqualTo(customer.userId());
 		assertThat((String) JsonPath.read(tokenClaims, "$.act.sub")).isEqualTo(adminId);
@@ -188,7 +188,7 @@ class AdminImpersonationIntegrationTests {
 
 		Session refreshed = session(this.mvc.perform(post("/api/auth/refresh").cookie(support.refreshCookie()))
 			.andExpect(status().isOk())
-			.andReturn(), SessionConstants.REFRESH_COOKIE_NAME);
+			.andReturn(), AppConstants.REFRESH_COOKIE_NAME);
 		assertThat((String) JsonPath.read(claims(refreshed.accessToken()), "$.act.sub")).isEqualTo(adminId);
 
 		// The customer's own session is not a support session.
@@ -254,7 +254,7 @@ class AdminImpersonationIntegrationTests {
 		Session session = session(this.mvc
 			.perform(json(post("/api/auth/login"), "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, PASSWORD)))
 			.andExpect(status().isOk())
-			.andReturn(), SessionConstants.REFRESH_COOKIE_NAME);
+			.andReturn(), AppConstants.REFRESH_COOKIE_NAME);
 		MvcResult portal = this.mvc
 			.perform(json(post("/api/portals").header("Authorization", session.bearer()),
 					"{\"name\":\"Portal\",\"slug\":\"p-%s\"}".formatted(UUID.randomUUID().toString().substring(0, 8))))
