@@ -18,7 +18,7 @@ public class UserMapper {
 	}
 
 	public MeResponseDTO toMe(AppUser user, List<PortalMembershipResponseDTO> portals) {
-		return new MeResponseDTO(user.getId(), user.getEmail(), user.getFullName(), portals);
+		return new MeResponseDTO(user.getId(), user.getEmail(), user.getFullName(), user.getTimeZone(), portals);
 	}
 
 }

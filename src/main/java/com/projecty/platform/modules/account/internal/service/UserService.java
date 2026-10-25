@@ -6,6 +6,7 @@ import com.projecty.platform.modules.account.api.UserLookUpService;
 import com.projecty.platform.modules.account.api.UserWriteService;
 import com.projecty.platform.modules.account.internal.dto.MeResponseDTO;
 import com.projecty.platform.modules.account.internal.dto.SignupCreateDTO;
+import com.projecty.platform.modules.account.internal.dto.UserPreferencesUpdateDTO;
 
 /**
  * Identities: sign up and email verification (SEC-US-01), password reset (SEC-US-03), login checks
@@ -33,5 +34,10 @@ public interface UserService extends UserLookUpService, UserWriteService {
 	void resetPassword(String token, String newPassword);
 
 	MeResponseDTO getMe(UUID userId);
+
+	/**
+	 * Sets or clears (null) the user's personal time zone (PTL-US-12).
+	 */
+	MeResponseDTO updatePreferences(UUID userId, UserPreferencesUpdateDTO request);
 
 }

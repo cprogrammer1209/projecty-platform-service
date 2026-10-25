@@ -54,8 +54,8 @@ public class TokenServiceImpl implements TokenService {
 	public IssuedAccessTokenDTO issueAccessToken(AccessTokenClaimsDTO request) {
 		JwtClaimsSet.Builder claims = base(this.properties.audience(), request.userId(), request.sessionId())
 			.claim(TokenConstants.CLAIM_EMAIL, request.email())
-			.claim(TokenConstants.CLAIM_NAME, request.fullName())
-			.claim(TokenConstants.CLAIM_PORTALS, request.portalIds().stream().map(UUID::toString).toList());
+			.claim(AppConstants.CLAIM_NAME, request.fullName())
+			.claim(AppConstants.CLAIM_PORTALS, request.portalIds().stream().map(UUID::toString).toList());
 		ImpersonationClaimDTO impersonation = request.impersonation();
 		if (impersonation != null) {
 			claims.claim(TokenConstants.CLAIM_ACTOR, actor(impersonation))
@@ -70,7 +70,7 @@ public class TokenServiceImpl implements TokenService {
 	public IssuedAccessTokenDTO issueAdminAccessToken(AdminAccessTokenClaimsDTO request) {
 		return sign(base(this.properties.adminAudience(), request.adminId(), request.sessionId())
 			.claim(TokenConstants.CLAIM_EMAIL, request.email())
-			.claim(TokenConstants.CLAIM_NAME, request.fullName())
+			.claim(AppConstants.CLAIM_NAME, request.fullName())
 			.claim(TokenConstants.CLAIM_ROLE, AppConstants.ROLE_PLATFORM_ADMIN)
 			.build());
 	}
@@ -97,7 +97,7 @@ public class TokenServiceImpl implements TokenService {
 	private static Map<String, Object> actor(ImpersonationClaimDTO impersonation) {
 		Map<String, Object> actor = new LinkedHashMap<>();
 		actor.put(JwtClaimNames.SUB, impersonation.adminId().toString());
-		actor.put(TokenConstants.CLAIM_NAME, impersonation.adminName());
+		actor.put(AppConstants.CLAIM_NAME, impersonation.adminName());
 		actor.put(TokenConstants.CLAIM_ACTOR_TYPE, TokenConstants.ACTOR_TYPE_ADMIN);
 		return actor;
 	}

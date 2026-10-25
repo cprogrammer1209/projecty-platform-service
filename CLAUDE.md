@@ -70,6 +70,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 Before writing code for a feature:
 - Decide which module owns it (new or existing), and what goes in `api/` (interfaces + DTOs only) versus `internal/`.
 - List the feature's endpoints and confirm every one lands in that module. If one seems to belong elsewhere, stop and ask.
+- Portal-owned data: give the table `portal_id`, take `portalId` in every repository method, and get it only from `RequestPortalContext.requirePortalId()`, never from the request body. Another portal's record → 404.
 - Use the exact layout and names: `{Entity}LookUpService` / `{Entity}WriteService`, `{Entity}Service` + `impl/{Entity}ServiceImpl`, `{Entity}CreateDTO`, `{Entity}Mapper`, `{Module}Constants`.
 
 While writing it:

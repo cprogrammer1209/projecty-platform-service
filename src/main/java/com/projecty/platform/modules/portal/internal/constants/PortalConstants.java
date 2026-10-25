@@ -1,5 +1,6 @@
 package com.projecty.platform.modules.portal.internal.constants;
 
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -50,6 +51,47 @@ public final class PortalConstants {
 	public static final String MESSAGE_SLUG_TAKEN = "This slug is already taken.";
 
 	public static final String DETAIL_SUGGESTIONS = "suggestions";
+
+	/**
+	 * PTL-US-02 defaults for a new portal. The time zone comes from the creator's browser when sent.
+	 */
+	public static final String DEFAULT_TIME_ZONE = "UTC";
+
+	public static final String DEFAULT_DATE_FORMAT = "MMM d, yyyy";
+
+	public static final String DEFAULT_CURRENCY = "USD";
+
+	/**
+	 * Date patterns a portal can choose (Angular DatePipe / Java DateTimeFormatter syntax).
+	 */
+	public static final List<String> ALLOWED_DATE_FORMATS = List.of("MMM d, yyyy", "d MMM yyyy", "dd/MM/yyyy",
+			"MM/dd/yyyy", "yyyy-MM-dd");
+
+	public static final String LABEL_TIME_ZONE = "Time zone";
+
+	public static final String LABEL_DATE_FORMAT = "Date format";
+
+	public static final String LABEL_CURRENCY = "Currency";
+
+	public static final String LABEL_WEEK_START = "Week start";
+
+	public static final String FIELD_TIME_ZONE = "timeZone";
+
+	public static final String FIELD_DATE_FORMAT = "dateFormat";
+
+	public static final String FIELD_CURRENCY = "currency";
+
+	public static final String ERROR_PORTAL_NOT_FOUND = "PORTAL_NOT_FOUND";
+
+	public static final String MESSAGE_PORTAL_NOT_FOUND = "Portal not found.";
+
+	public static final String MESSAGE_TIME_ZONE_INVALID = "Choose a valid time zone.";
+
+	public static final String MESSAGE_DATE_FORMAT_INVALID = "Choose one of the offered date formats.";
+
+	public static final String MESSAGE_CURRENCY_INVALID = "Choose a valid currency code.";
+
+	public static final String MESSAGE_SETTINGS_FORBIDDEN = "Only the portal owner can change portal settings.";
 
 	private PortalConstants() {
 	}

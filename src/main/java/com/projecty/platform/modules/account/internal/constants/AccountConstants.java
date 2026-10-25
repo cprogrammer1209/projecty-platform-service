@@ -28,6 +28,10 @@ public final class AccountConstants {
 
 	public static final String RESET_PASSWORD_PAGE = "reset-password";
 
+	public static final String FIELD_TIME_ZONE = "timeZone";
+
+	public static final String MESSAGE_TIME_ZONE_INVALID = "Choose a valid time zone.";
+
 	public static final String ERROR_EMAIL_TAKEN = "EMAIL_TAKEN";
 
 	public static final String ERROR_WEAK_PASSWORD = "WEAK_PASSWORD";

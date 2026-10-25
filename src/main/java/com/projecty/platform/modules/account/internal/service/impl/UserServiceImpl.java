@@ -1,13 +1,16 @@
 package com.projecty.platform.modules.account.internal.service.impl;
 
 import java.time.Clock;
+import java.time.DateTimeException;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.projecty.platform.common.constants.AppConstants;
 import com.projecty.platform.common.exception.AppException;
 import com.projecty.platform.modules.account.api.dto.UserResponseDTO;
 import com.projecty.platform.modules.account.api.event.UserPasswordResetEvent;
@@ -15,6 +18,7 @@ import com.projecty.platform.modules.account.internal.config.AccountProperties;
 import com.projecty.platform.modules.account.internal.constants.AccountConstants;
 import com.projecty.platform.modules.account.internal.dto.MeResponseDTO;
 import com.projecty.platform.modules.account.internal.dto.SignupCreateDTO;
+import com.projecty.platform.modules.account.internal.dto.UserPreferencesUpdateDTO;
 import com.projecty.platform.modules.account.internal.entity.AppUser;
 import com.projecty.platform.modules.account.internal.entity.EmailTokenPurpose;
 import com.projecty.platform.modules.account.internal.helper.PasswordPolicyHelper;
@@ -174,6 +178,30 @@ public class UserServiceImpl implements UserService {
 			.orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, AccountConstants.ERROR_USER_NOT_FOUND,
 					AccountConstants.MESSAGE_USER_NOT_FOUND));
 		return this.userMapper.toMe(user, this.portalLookUpService.findMemberships(userId));
+	}
+
+	@Override
+	@Transactional
+	public MeResponseDTO updatePreferences(UUID userId, UserPreferencesUpdateDTO request) {
+		String timeZone = (request.timeZone() == null || request.timeZone().isBlank()) ? null
+				: request.timeZone().strip();
+		if (timeZone != null && !isValidZone(timeZone)) {
+			throw new AppException(HttpStatus.BAD_REQUEST, AppConstants.ERROR_VALIDATION_FAILED,
+					AppConstants.MESSAGE_VALIDATION_FAILED,
+					Map.of(AccountConstants.FIELD_TIME_ZONE, AccountConstants.MESSAGE_TIME_ZONE_INVALID));
+		}
+		this.repository.findById(userId).orElseThrow().updateTimeZone(timeZone, this.clock.instant());
+		return getMe(userId);
+	}
+
+	private static boolean isValidZone(String zone) {
+		try {
+			ZoneId.of(zone);
+			return true;
+		}
+		catch (DateTimeException ex) {
+			return false;
+		}
 	}
 
 	private static AppException emailTaken() {

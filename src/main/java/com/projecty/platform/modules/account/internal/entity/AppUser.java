@@ -47,6 +47,11 @@ public class AppUser {
 
 	private Instant lastLoginAt;
 
+	/**
+	 * Personal time zone (PTL-US-12); null means "use the portal's".
+	 */
+	private String timeZone;
+
 	@Column(updatable = false)
 	private Instant createdAt;
 
@@ -95,6 +100,11 @@ public class AppUser {
 			this.failedLoginCount = 0;
 			this.firstFailedLoginAt = null;
 		}
+		this.updatedAt = now;
+	}
+
+	public void updateTimeZone(String timeZone, Instant now) {
+		this.timeZone = timeZone;
 		this.updatedAt = now;
 	}
 

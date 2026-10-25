@@ -4,11 +4,14 @@ import java.util.UUID;
 
 import com.projecty.platform.common.dto.AppResponse;
 import com.projecty.platform.modules.account.internal.dto.MeResponseDTO;
+import com.projecty.platform.modules.account.internal.dto.UserPreferencesUpdateDTO;
 import com.projecty.platform.modules.account.internal.service.UserService;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -23,6 +26,12 @@ public class MeController {
 	@GetMapping("/api/me")
 	public AppResponse<MeResponseDTO> me(@AuthenticationPrincipal Jwt jwt) {
 		return AppResponse.ok(this.userService.getMe(UUID.fromString(jwt.getSubject())));
+	}
+
+	@PatchMapping("/api/me/preferences")
+	public AppResponse<MeResponseDTO> updatePreferences(@AuthenticationPrincipal Jwt jwt,
+			@RequestBody UserPreferencesUpdateDTO request) {
+		return AppResponse.ok(this.userService.updatePreferences(UUID.fromString(jwt.getSubject()), request));
 	}
 
 }

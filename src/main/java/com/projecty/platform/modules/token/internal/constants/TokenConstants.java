@@ -8,10 +8,6 @@ public final class TokenConstants {
 
 	public static final String CLAIM_EMAIL = "email";
 
-	public static final String CLAIM_NAME = "name";
-
-	public static final String CLAIM_PORTALS = "portals";
-
 	public static final String CLAIM_SESSION_ID = "sid";
 
 	public static final String CLAIM_ROLE = "role";

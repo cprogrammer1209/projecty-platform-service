@@ -2,8 +2,10 @@ package com.projecty.platform.common.security.config;
 
 import com.projecty.platform.common.config.AppProperties;
 import com.projecty.platform.common.constants.AppConstants;
+import com.projecty.platform.common.security.filter.PortalContextFilter;
 import com.projecty.platform.common.security.handler.RestAccessDeniedHandler;
 import com.projecty.platform.common.security.handler.RestAuthenticationEntryPoint;
+import com.projecty.platform.common.security.handler.SecurityErrorWriter;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,6 +15,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -26,14 +29,15 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  * own. The refresh cookies are HttpOnly, SameSite=Strict and scoped to /api/auth and /api/admin/auth.
  *
  * Customer tokens carry role USER and admin console tokens role PLATFORM_ADMIN (mapped from the audience by
- * the token module), so neither kind of token works on the other's endpoints.
+ * the token module), so neither kind of token works on the other's endpoints. {@code PortalContextFilter}
+ * then checks the active portal of customer requests ({@code X-Portal-Id}).
  */
 @Configuration
 public class SecurityConfig {
 
 	@Bean
 	public SecurityFilterChain apiSecurity(HttpSecurity http, RestAuthenticationEntryPoint authenticationEntryPoint,
-			RestAccessDeniedHandler accessDeniedHandler) throws Exception {
+			RestAccessDeniedHandler accessDeniedHandler, SecurityErrorWriter errorWriter) throws Exception {
 		return http.csrf((csrf) -> csrf.disable())
 			.cors(Customizer.withDefaults())
 			.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -55,6 +59,7 @@ public class SecurityConfig {
 				.accessDeniedHandler(accessDeniedHandler))
 			.exceptionHandling((exceptions) -> exceptions.authenticationEntryPoint(authenticationEntryPoint)
 				.accessDeniedHandler(accessDeniedHandler))
+			.addFilterAfter(new PortalContextFilter(errorWriter), BearerTokenAuthenticationFilter.class)
 			.build();
 	}
 
