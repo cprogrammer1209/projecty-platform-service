@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: platform-service
+  docker:
+    compose:
+      file: ../compose.yaml
+      lifecycle-management: start-only
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  mail:
+    host: localhost
+    port: 1025
+
+server:
+  port: 8081
+
+projecty:
+  frontend-url: http://localhost:4200
+  cors:
+    allowed-origins: http://localhost:4200
+  mail:
+    from: "ProjectY <no-reply@projecty.local>"
+  token:
+    issuer: http://localhost:8081
+    audience: projecty-api
+    access-token-ttl: 15m
+  session:
+    idle-timeout: 7d
+    absolute-timeout: 30d
+    refresh-cookie-secure: false # true outside local development (requires HTTPS)
+  account:
+    verify-email-token-ttl: 24h
+    reset-password-token-ttl: 1h
+    lockout-max-attempts: 5
+    lockout-window: 15m
+    lockout-duration: 15m
+  portal:
+    max-portals-per-user: 20
