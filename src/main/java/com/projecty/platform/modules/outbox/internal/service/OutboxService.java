@@ -11,4 +11,10 @@ public interface OutboxService extends OutboxWriteService {
 	 */
 	int relayBatch();
 
+	/**
+	 * Deletes events that were published longer ago than the retention.
+	 * @return how many were deleted
+	 */
+	int purgePublished();
+
 }

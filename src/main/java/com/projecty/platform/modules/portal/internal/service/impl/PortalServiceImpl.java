@@ -121,7 +121,7 @@ public class PortalServiceImpl implements PortalService {
 				portal.getId(), userId, userName, "Created portal " + portal.getName()));
 		this.outboxWriteService.publish(new OutboxEventCreateDTO(portal.getId(),
 				OutboxEventConstants.AGGREGATE_PORTAL, portal.getId(), OutboxEventConstants.EVENT_PORTAL_CREATED,
-				Map.of("portalId", portal.getId(), "slug", portal.getSlug(), "ownerUserId", userId)));
+				userId, userName, Map.of("portalId", portal.getId(), "slug", portal.getSlug(), "ownerUserId", userId)));
 		return this.portalMapper.toResponse(portal);
 	}
 
@@ -143,6 +143,10 @@ public class PortalServiceImpl implements PortalService {
 			this.auditWriteService.record(new AuditEventCreateDTO(AuditEventConstants.CATEGORY_ADMIN,
 					AuditEventConstants.ACTION_PORTAL_SETTINGS_CHANGED, AuditEventConstants.ACTOR_USER, userId,
 					userName, portal.getId(), null, null, changes));
+			this.outboxWriteService.publish(new OutboxEventCreateDTO(portal.getId(),
+					OutboxEventConstants.AGGREGATE_PORTAL, portal.getId(),
+					OutboxEventConstants.EVENT_PORTAL_SETTINGS_CHANGED, userId, userName,
+					Map.of("portalId", portal.getId(), "changes", changes)));
 		}
 		return this.portalMapper.toCurrent(portal);
 	}

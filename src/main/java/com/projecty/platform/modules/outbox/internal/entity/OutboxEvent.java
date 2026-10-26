@@ -37,16 +37,25 @@ public class OutboxEvent {
 	@JdbcTypeCode(SqlTypes.JSON)
 	private String payload;
 
+	private short version;
+
+	private UUID actorUserId;
+
+	private String actorName;
+
 	private Instant createdAt;
 
 	private Instant publishedAt;
 
-	public OutboxEvent(UUID portalId, String aggregateType, UUID aggregateId, String eventType, String payload,
-			Instant createdAt) {
+	public OutboxEvent(UUID portalId, String aggregateType, UUID aggregateId, String eventType, short version,
+			UUID actorUserId, String actorName, String payload, Instant createdAt) {
 		this.portalId = portalId;
 		this.aggregateType = aggregateType;
 		this.aggregateId = aggregateId;
 		this.eventType = eventType;
+		this.version = version;
+		this.actorUserId = actorUserId;
+		this.actorName = actorName;
 		this.payload = payload;
 		this.createdAt = createdAt;
 	}

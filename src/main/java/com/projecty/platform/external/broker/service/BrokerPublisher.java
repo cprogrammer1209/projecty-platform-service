@@ -1,17 +1,17 @@
 package com.projecty.platform.external.broker.service;
 
+import com.projecty.platform.external.broker.dto.BrokerMessageDTO;
+
 /**
- * Hands a business event to the message broker. The broker is not chosen yet (see the implementation plan),
- * so the only implementation logs the event.
+ * Hands a business event to the message broker (Kafka; {@code projecty.broker.type=logging} only logs, for
+ * tests).
  */
 public interface BrokerPublisher {
 
 	/**
-	 * @param eventType the event name, for example {@code PortalCreated}
-	 * @param key the aggregate id; events with one key must stay in order
-	 * @param payload the event as JSON
-	 * @throws RuntimeException when the broker did not accept the event; it is then retried
+	 * Returns only after the broker accepted the message.
+	 * @throws RuntimeException when it did not; the caller then retries
 	 */
-	void publish(String eventType, String key, String payload);
+	void publish(BrokerMessageDTO message);
 
 }

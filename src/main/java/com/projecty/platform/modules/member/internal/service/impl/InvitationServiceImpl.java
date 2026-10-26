@@ -136,7 +136,7 @@ public class InvitationServiceImpl implements InvitationService {
 		audit(AuditEventConstants.ACTION_USER_INVITED, actorId, actorName, portalId, null, email,
 				"Invited as " + profile.getName());
 		this.outboxWriteService.publish(new OutboxEventCreateDTO(portalId, OutboxEventConstants.AGGREGATE_INVITATION,
-				invitation.getId(), OutboxEventConstants.EVENT_USER_INVITED, Map.of("portalId", portalId,
+				invitation.getId(), OutboxEventConstants.EVENT_USER_INVITED, actorId, actorName, Map.of("portalId", portalId,
 						"invitationId", invitation.getId(), "profileId", profile.getId(), "invitedByUserId", actorId)));
 		return toResponse(invitation);
 	}
@@ -152,6 +152,9 @@ public class InvitationServiceImpl implements InvitationService {
 		invitation.revoke();
 		audit(AuditEventConstants.ACTION_INVITATION_REVOKED, actorId, actorName, portalId, null,
 				invitation.getEmail(), null);
+		this.outboxWriteService.publish(new OutboxEventCreateDTO(portalId, OutboxEventConstants.AGGREGATE_INVITATION,
+				invitation.getId(), OutboxEventConstants.EVENT_INVITATION_REVOKED, actorId, actorName,
+				Map.of("portalId", portalId, "invitationId", invitation.getId(), "revokedByUserId", actorId)));
 	}
 
 	@Override

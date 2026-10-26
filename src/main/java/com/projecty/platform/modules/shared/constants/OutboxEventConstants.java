@@ -14,7 +14,11 @@ public final class OutboxEventConstants {
 
 	public static final String EVENT_PORTAL_CREATED = "PortalCreated";
 
+	public static final String EVENT_PORTAL_SETTINGS_CHANGED = "PortalSettingsChanged";
+
 	public static final String EVENT_USER_INVITED = "UserInvited";
+
+	public static final String EVENT_INVITATION_REVOKED = "InvitationRevoked";
 
 	public static final String EVENT_USER_ACTIVATED = "UserActivated";
 

@@ -26,6 +26,19 @@ public class OutboxRelay {
 		this.properties = properties;
 	}
 
+	@Scheduled(fixedDelayString = "${projecty.outbox.purge-interval}")
+	public void purge() {
+		try {
+			int deleted = this.outboxService.purgePublished();
+			if (deleted > 0) {
+				log.info("Outbox purge removed {} published events", deleted);
+			}
+		}
+		catch (RuntimeException ex) {
+			log.error("Outbox purge failed", ex);
+		}
+	}
+
 	@Scheduled(fixedDelayString = "${projecty.outbox.poll-interval}")
 	public void relay() {
 		if (!this.properties.relayEnabled()) {

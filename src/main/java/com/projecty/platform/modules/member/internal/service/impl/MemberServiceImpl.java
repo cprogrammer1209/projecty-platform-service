@@ -138,7 +138,7 @@ public class MemberServiceImpl implements MemberService {
 		member.changeProfile(next.getId());
 		audit(AuditEventConstants.ACTION_USER_PROFILE_CHANGED, actorId, actorName, portalId, userId,
 				"Profile " + current.getName() + " → " + next.getName());
-		publish(OutboxEventConstants.EVENT_USER_PROFILE_CHANGED, portalId, userId,
+		publish(OutboxEventConstants.EVENT_USER_PROFILE_CHANGED, portalId, userId, actorId, actorName,
 				Map.of("portalId", portalId, "userId", userId, "actorUserId", actorId, "fromProfileId",
 						current.getId(), "toProfileId", next.getId()));
 		return toMember(member, portalId);
@@ -161,7 +161,7 @@ public class MemberServiceImpl implements MemberService {
 		}
 		member.deactivate(this.clock.instant());
 		audit(AuditEventConstants.ACTION_USER_DEACTIVATED, actorId, actorName, portalId, userId, null);
-		publish(OutboxEventConstants.EVENT_USER_DEACTIVATED, portalId, userId,
+		publish(OutboxEventConstants.EVENT_USER_DEACTIVATED, portalId, userId, actorId, actorName,
 				Map.of("portalId", portalId, "userId", userId, "actorUserId", actorId));
 		return toMember(member, portalId);
 	}
@@ -175,7 +175,7 @@ public class MemberServiceImpl implements MemberService {
 			requireRoomForAnotherPortal(userId);
 			member.reactivate();
 			audit(AuditEventConstants.ACTION_USER_REACTIVATED, actorId, actorName, portalId, userId, null);
-			publish(OutboxEventConstants.EVENT_USER_ACTIVATED, portalId, userId,
+			publish(OutboxEventConstants.EVENT_USER_ACTIVATED, portalId, userId, actorId, actorName,
 					Map.of("portalId", portalId, "userId", userId, "actorUserId", actorId, "profileId",
 							member.getProfileId()));
 		}
@@ -214,7 +214,7 @@ public class MemberServiceImpl implements MemberService {
 		else {
 			this.memberRepository.save(new PortalMember(portalId, userId, profileId, this.clock.instant()));
 		}
-		publish(OutboxEventConstants.EVENT_USER_ACTIVATED, portalId, userId,
+		publish(OutboxEventConstants.EVENT_USER_ACTIVATED, portalId, userId, userId, null,
 				Map.of("portalId", portalId, "userId", userId, "profileId", profileId));
 	}
 
@@ -271,9 +271,10 @@ public class MemberServiceImpl implements MemberService {
 				AuditEventConstants.ACTOR_USER, actorId, actorName, portalId, targetUserId, targetName, detail));
 	}
 
-	private void publish(String eventType, UUID portalId, UUID userId, Map<String, Object> payload) {
+	private void publish(String eventType, UUID portalId, UUID userId, UUID actorId, String actorName,
+			Map<String, Object> payload) {
 		this.outboxWriteService.publish(new OutboxEventCreateDTO(portalId, OutboxEventConstants.AGGREGATE_MEMBER,
-				userId, eventType, payload));
+				userId, eventType, actorId, actorName, payload));
 	}
 
 	private static AppException ownerLocked() {

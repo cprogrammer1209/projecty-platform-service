@@ -12,6 +12,18 @@ spring:
   mail:
     host: localhost
     port: 1025
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        # Fail fast when the broker is down: the relay holds a database transaction while it publishes.
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
 
 server:
   port: 8081
@@ -60,3 +72,14 @@ projecty:
     poll-interval: 1s
     batch-size: 100
     relay-enabled: true
+    retention: 7d
+    purge-interval: 1h
+  broker:
+    type: kafka # "logging" only logs events (used by the tests)
+    send-timeout: 5s
+    partitions: 3
+    # One topic per aggregate type (projecty.<aggregate>). A new aggregate must add its topic here.
+    topics:
+      - projecty.portal
+      - projecty.member
+      - projecty.invitation
