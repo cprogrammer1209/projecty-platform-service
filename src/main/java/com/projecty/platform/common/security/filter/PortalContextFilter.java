@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import com.projecty.platform.common.constants.AppConstants;
 import com.projecty.platform.common.security.handler.SecurityErrorWriter;
+import com.projecty.platform.common.service.PortalAccessService;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,8 +29,11 @@ public class PortalContextFilter extends OncePerRequestFilter {
 
 	private final SecurityErrorWriter errorWriter;
 
-	public PortalContextFilter(SecurityErrorWriter errorWriter) {
+	private final PortalAccessService portalAccessService;
+
+	public PortalContextFilter(SecurityErrorWriter errorWriter, PortalAccessService portalAccessService) {
 		this.errorWriter = errorWriter;
+		this.portalAccessService = portalAccessService;
 	}
 
 	@Override
@@ -51,7 +55,10 @@ public class PortalContextFilter extends OncePerRequestFilter {
 			return;
 		}
 		List<String> portals = jwt.getClaimAsStringList(AppConstants.CLAIM_PORTALS);
-		if (portals == null || !portals.contains(portalId.toString())) {
+		// The token says which portals the user had when it was issued; membership is re-checked live so a
+		// deactivation takes effect at once (USR-BR-09).
+		if (portals == null || !portals.contains(portalId.toString())
+				|| !this.portalAccessService.isActiveMember(portalId, UUID.fromString(jwt.getSubject()))) {
 			this.errorWriter.write(response, HttpServletResponse.SC_FORBIDDEN, AppConstants.ERROR_PORTAL_ACCESS_DENIED,
 					AppConstants.MESSAGE_PORTAL_ACCESS_DENIED);
 			return;

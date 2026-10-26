@@ -39,8 +39,6 @@ public final class PortalConstants {
 
 	public static final String ERROR_SLUG_TAKEN = "SLUG_TAKEN";
 
-	public static final String ERROR_PORTAL_LIMIT = "PORTAL_LIMIT";
-
 	public static final String MESSAGE_SLUG_LENGTH = "Slug must be " + SLUG_MIN_LENGTH + "–" + SLUG_MAX_LENGTH
 			+ " characters.";
 
@@ -91,7 +89,6 @@ public final class PortalConstants {
 
 	public static final String MESSAGE_CURRENCY_INVALID = "Choose a valid currency code.";
 
-	public static final String MESSAGE_SETTINGS_FORBIDDEN = "Only the portal owner can change portal settings.";
 
 	private PortalConstants() {
 	}

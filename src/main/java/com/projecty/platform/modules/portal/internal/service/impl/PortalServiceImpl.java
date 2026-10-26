@@ -5,6 +5,7 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Currency;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,38 +19,38 @@ import com.projecty.platform.common.exception.AppException;
 import com.projecty.platform.common.service.RequestPortalContext;
 import com.projecty.platform.modules.audit.api.AuditWriteService;
 import com.projecty.platform.modules.audit.api.dto.AuditEventCreateDTO;
-import com.projecty.platform.modules.portal.api.dto.PortalMemberResponseDTO;
-import com.projecty.platform.modules.portal.api.dto.PortalMembershipResponseDTO;
+import com.projecty.platform.modules.outbox.api.OutboxWriteService;
+import com.projecty.platform.modules.outbox.api.dto.OutboxEventCreateDTO;
 import com.projecty.platform.modules.portal.api.dto.PortalSummaryResponseDTO;
-import com.projecty.platform.modules.portal.internal.config.PortalProperties;
+import com.projecty.platform.modules.portal.api.event.PortalCreatedEvent;
 import com.projecty.platform.modules.portal.internal.constants.PortalConstants;
 import com.projecty.platform.modules.portal.internal.dto.CurrentPortalResponseDTO;
 import com.projecty.platform.modules.portal.internal.dto.PortalCreateDTO;
 import com.projecty.platform.modules.portal.internal.dto.PortalResponseDTO;
 import com.projecty.platform.modules.portal.internal.dto.PortalSettingsUpdateDTO;
 import com.projecty.platform.modules.portal.internal.dto.SlugAvailabilityResponseDTO;
-import com.projecty.platform.modules.portal.internal.entity.MemberStatus;
 import com.projecty.platform.modules.portal.internal.entity.Portal;
-import com.projecty.platform.modules.portal.internal.entity.PortalMember;
-import com.projecty.platform.modules.portal.internal.entity.PortalProfile;
 import com.projecty.platform.modules.portal.internal.helper.SlugRulesHelper;
 import com.projecty.platform.modules.portal.internal.mapper.PortalMapper;
-import com.projecty.platform.modules.portal.internal.repository.PortalMemberRepository;
 import com.projecty.platform.modules.portal.internal.repository.PortalRepository;
 import com.projecty.platform.modules.portal.internal.service.PortalService;
 import com.projecty.platform.modules.shared.constants.AuditEventConstants;
+import com.projecty.platform.modules.shared.constants.OutboxEventConstants;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Composite service: owns portals, their slugs and settings. Membership belongs to the member module, which
+ * hears about new portals through {@code PortalCreatedEvent}.
+ */
 @Service
 public class PortalServiceImpl implements PortalService {
 
 	private final PortalRepository portalRepository;
-
-	private final PortalMemberRepository memberRepository;
 
 	private final PortalMapper portalMapper;
 
@@ -57,103 +58,84 @@ public class PortalServiceImpl implements PortalService {
 
 	private final AuditWriteService auditWriteService;
 
-	private final PortalProperties properties;
+	private final OutboxWriteService outboxWriteService;
+
+	private final ApplicationEventPublisher events;
 
 	private final Clock clock;
 
-	public PortalServiceImpl(PortalRepository portalRepository, PortalMemberRepository memberRepository,
-			PortalMapper portalMapper, RequestPortalContext portalContext, AuditWriteService auditWriteService,
-			PortalProperties properties, Clock clock) {
+	public PortalServiceImpl(PortalRepository portalRepository, PortalMapper portalMapper,
+			RequestPortalContext portalContext, AuditWriteService auditWriteService,
+			OutboxWriteService outboxWriteService, ApplicationEventPublisher events, Clock clock) {
 		this.portalRepository = portalRepository;
-		this.memberRepository = memberRepository;
 		this.portalMapper = portalMapper;
 		this.portalContext = portalContext;
 		this.auditWriteService = auditWriteService;
-		this.properties = properties;
+		this.outboxWriteService = outboxWriteService;
+		this.events = events;
 		this.clock = clock;
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public List<UUID> findActivePortalIds(UUID userId) {
-		return this.memberRepository.findActivePortalIds(userId);
-	}
-
-	@Override
-	@Transactional(readOnly = true)
-	public List<PortalMembershipResponseDTO> findMemberships(UUID userId) {
-		return this.memberRepository.findMemberships(userId);
-	}
-
-	@Override
-	@Transactional(readOnly = true)
 	public List<PortalSummaryResponseDTO> findAllPortals() {
-		return this.portalRepository.findAllSummaries();
+		return this.portalRepository.findAllByOrderByCreatedAtDesc().stream().map(this.portalMapper::toSummary).toList();
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public Optional<PortalSummaryResponseDTO> findPortal(UUID portalId) {
-		return this.portalRepository.findSummary(portalId);
+		return this.portalRepository.findById(portalId).map(this.portalMapper::toSummary);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public List<PortalMemberResponseDTO> findMembers(UUID portalId) {
-		return this.memberRepository.findMembers(portalId);
-	}
-
-	@Override
-	@Transactional(readOnly = true)
-	public boolean isActiveMember(UUID portalId, UUID userId) {
-		return this.memberRepository.existsByPortalIdAndUserIdAndStatus(portalId, userId, MemberStatus.ACTIVE);
+	public List<PortalSummaryResponseDTO> findByIds(Collection<UUID> portalIds) {
+		return this.portalRepository.findAllById(portalIds).stream().map(this.portalMapper::toSummary).toList();
 	}
 
 	@Override
 	@Transactional
-	public PortalResponseDTO create(UUID userId, PortalCreateDTO request) {
+	public PortalResponseDTO create(UUID userId, String userName, PortalCreateDTO request) {
 		String slug = request.slug();
 		Optional<String> slugProblem = SlugRulesHelper.problem(slug);
 		if (slugProblem.isPresent()) {
 			throw new AppException(HttpStatus.BAD_REQUEST, PortalConstants.ERROR_SLUG_INVALID, slugProblem.get());
 		}
-		if (this.memberRepository.findActivePortalIds(userId).size() >= this.properties.maxPortalsPerUser()) {
-			throw new AppException(HttpStatus.UNPROCESSABLE_CONTENT, PortalConstants.ERROR_PORTAL_LIMIT,
-					"You can belong to at most " + this.properties.maxPortalsPerUser() + " portals.");
-		}
 		if (this.portalRepository.existsBySlug(slug)) {
 			throw slugTaken(slug);
 		}
 		Instant now = this.clock.instant();
+		Portal portal;
 		try {
-			Portal portal = this.portalRepository
+			portal = this.portalRepository
 				.saveAndFlush(new Portal(request.name().strip(), slug, userId, initialTimeZone(request.timeZone()), now));
-			this.memberRepository.save(new PortalMember(portal.getId(), userId, PortalProfile.PORTAL_OWNER, now));
-			return this.portalMapper.toResponse(portal, PortalProfile.PORTAL_OWNER);
 		}
 		catch (DataIntegrityViolationException ex) {
 			// Another request took the slug between the check and the insert.
 			throw slugTaken(slug);
 		}
+		this.events.publishEvent(new PortalCreatedEvent(portal.getId(), userId));
+		this.auditWriteService.record(new AuditEventCreateDTO(AuditEventConstants.CATEGORY_ADMIN,
+				AuditEventConstants.ACTION_PORTAL_CREATED, AuditEventConstants.ACTOR_USER, userId, userName,
+				portal.getId(), userId, userName, "Created portal " + portal.getName()));
+		this.outboxWriteService.publish(new OutboxEventCreateDTO(portal.getId(),
+				OutboxEventConstants.AGGREGATE_PORTAL, portal.getId(), OutboxEventConstants.EVENT_PORTAL_CREATED,
+				Map.of("portalId", portal.getId(), "slug", portal.getSlug(), "ownerUserId", userId)));
+		return this.portalMapper.toResponse(portal);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public CurrentPortalResponseDTO getCurrent(UUID userId) {
-		PortalMember member = currentMember(userId);
-		return this.portalMapper.toCurrent(currentPortal(member), member.getProfile());
+	public CurrentPortalResponseDTO getCurrent() {
+		return this.portalMapper.toCurrent(currentPortal());
 	}
 
 	@Override
 	@Transactional
 	public CurrentPortalResponseDTO updateSettings(UUID userId, String userName, PortalSettingsUpdateDTO request) {
-		PortalMember member = currentMember(userId);
-		if (member.getProfile() != PortalProfile.PORTAL_OWNER) {
-			throw new AppException(HttpStatus.FORBIDDEN, AppConstants.ERROR_FORBIDDEN,
-					PortalConstants.MESSAGE_SETTINGS_FORBIDDEN);
-		}
 		validateSettings(request);
-		Portal portal = currentPortal(member);
+		Portal portal = currentPortal();
 		String changes = describeChanges(portal, request);
 		portal.updateSettings(request.timeZone(), request.dateFormat(), request.currency(), request.weekStart(),
 				this.clock.instant());
@@ -162,7 +144,7 @@ public class PortalServiceImpl implements PortalService {
 					AuditEventConstants.ACTION_PORTAL_SETTINGS_CHANGED, AuditEventConstants.ACTOR_USER, userId,
 					userName, portal.getId(), null, null, changes));
 		}
-		return this.portalMapper.toCurrent(portal, member.getProfile());
+		return this.portalMapper.toCurrent(portal);
 	}
 
 	@Override
@@ -179,17 +161,11 @@ public class PortalServiceImpl implements PortalService {
 	}
 
 	/**
-	 * The caller's active membership in the request's portal. Not a member → "not found", so the portal's
-	 * existence isn't revealed (PTL-US-04).
+	 * The request's portal. PortalContextFilter already checked that the caller is an active member.
 	 */
-	private PortalMember currentMember(UUID userId) {
-		UUID portalId = this.portalContext.requirePortalId();
-		return this.memberRepository.findByPortalIdAndUserIdAndStatus(portalId, userId, MemberStatus.ACTIVE)
+	private Portal currentPortal() {
+		return this.portalRepository.findById(this.portalContext.requirePortalId())
 			.orElseThrow(PortalServiceImpl::portalNotFound);
-	}
-
-	private Portal currentPortal(PortalMember member) {
-		return this.portalRepository.findById(member.getPortalId()).orElseThrow(PortalServiceImpl::portalNotFound);
 	}
 
 	private static String initialTimeZone(String requested) {

@@ -130,7 +130,7 @@ class AdminImpersonationIntegrationTests {
 		this.mvc.perform(get("/api/admin/tenants/" + customer.portalId() + "/users").header("Authorization", admin.bearer()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data[0].email").value(customer.email()))
-			.andExpect(jsonPath("$.data[0].profile").value("PORTAL_OWNER"))
+			.andExpect(jsonPath("$.data[0].profile").value("Admin"))
 			.andExpect(jsonPath("$.data[0].active").value(true));
 		this.mvc.perform(get("/api/admin/tenants/" + UUID.randomUUID()).header("Authorization", admin.bearer()))
 			.andExpect(status().isNotFound())
@@ -205,7 +205,8 @@ class AdminImpersonationIntegrationTests {
 			.andExpect(status().isOk())
 			.andReturn();
 		List<String> actions = JsonPath.read(audit.getResponse().getContentAsString(), "$.data[*].action");
-		assertThat(actions).containsExactly("IMPERSONATION_ENDED", "IMPERSONATION_STARTED", "IMPERSONATION_REQUESTED");
+		assertThat(actions).containsExactly("IMPERSONATION_ENDED", "IMPERSONATION_STARTED", "IMPERSONATION_REQUESTED",
+				"PORTAL_CREATED");
 		String requestDetail = JsonPath.read(audit.getResponse().getContentAsString(), "$.data[2].detail");
 		assertThat(requestDetail).contains("Reason: Configuration").contains(customer.email());
 

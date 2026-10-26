@@ -12,4 +12,11 @@ public interface UserWriteService {
 	 */
 	UserResponseDTO authenticate(String email, String password);
 
+	/**
+	 * Creates an identity whose email is already verified, for someone who proved control of the address
+	 * another way (an invitation link). Applies the password policy (SEC-BR-01).
+	 * @throws com.projecty.platform.common.exception.AppException {@code EMAIL_TAKEN} or {@code WEAK_PASSWORD}
+	 */
+	UserResponseDTO createVerifiedUser(String email, String fullName, String password);
+
 }

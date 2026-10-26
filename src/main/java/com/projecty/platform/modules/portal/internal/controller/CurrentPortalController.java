@@ -6,9 +6,11 @@ import jakarta.validation.Valid;
 
 import com.projecty.platform.common.constants.AppConstants;
 import com.projecty.platform.common.dto.AppResponse;
+import com.projecty.platform.common.security.annotation.RequirePermission;
 import com.projecty.platform.modules.portal.internal.dto.CurrentPortalResponseDTO;
 import com.projecty.platform.modules.portal.internal.dto.PortalSettingsUpdateDTO;
 import com.projecty.platform.modules.portal.internal.service.PortalService;
+import com.projecty.platform.modules.shared.constants.PermissionConstants;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -32,11 +34,12 @@ public class CurrentPortalController {
 	}
 
 	@GetMapping
-	public AppResponse<CurrentPortalResponseDTO> get(@AuthenticationPrincipal Jwt jwt) {
-		return AppResponse.ok(this.portalService.getCurrent(UUID.fromString(jwt.getSubject())));
+	public AppResponse<CurrentPortalResponseDTO> get() {
+		return AppResponse.ok(this.portalService.getCurrent());
 	}
 
 	@PatchMapping("/settings")
+	@RequirePermission(PermissionConstants.PORTAL_SETTINGS_MANAGE)
 	public AppResponse<CurrentPortalResponseDTO> updateSettings(@AuthenticationPrincipal Jwt jwt,
 			@Valid @RequestBody PortalSettingsUpdateDTO request) {
 		return AppResponse.ok(this.portalService.updateSettings(UUID.fromString(jwt.getSubject()),

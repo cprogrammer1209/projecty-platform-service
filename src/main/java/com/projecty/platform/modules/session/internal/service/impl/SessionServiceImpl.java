@@ -9,7 +9,7 @@ import com.projecty.platform.common.exception.AppException;
 import com.projecty.platform.modules.account.api.UserLookUpService;
 import com.projecty.platform.modules.account.api.UserWriteService;
 import com.projecty.platform.modules.account.api.dto.UserResponseDTO;
-import com.projecty.platform.modules.portal.api.PortalLookUpService;
+import com.projecty.platform.modules.member.api.MemberLookUpService;
 import com.projecty.platform.modules.session.api.dto.IssuedSessionDTO;
 import com.projecty.platform.modules.session.api.dto.SupportSessionCreateDTO;
 import com.projecty.platform.modules.session.api.event.SupportSessionExpiredEvent;
@@ -48,7 +48,7 @@ public class SessionServiceImpl implements SessionService {
 
 	private final UserWriteService userWriteService;
 
-	private final PortalLookUpService portalLookUpService;
+	private final MemberLookUpService memberLookUpService;
 
 	private final TokenWriteService tokenWriteService;
 
@@ -62,14 +62,14 @@ public class SessionServiceImpl implements SessionService {
 
 	public SessionServiceImpl(AuthSessionRepository sessionRepository,
 			RefreshTokenRepository refreshTokenRepository, UserLookUpService userLookUpService,
-			UserWriteService userWriteService, PortalLookUpService portalLookUpService,
+			UserWriteService userWriteService, MemberLookUpService memberLookUpService,
 			TokenWriteService tokenWriteService, SessionMapper sessionMapper, ApplicationEventPublisher events,
 			SessionProperties properties, Clock clock) {
 		this.sessionRepository = sessionRepository;
 		this.refreshTokenRepository = refreshTokenRepository;
 		this.userLookUpService = userLookUpService;
 		this.userWriteService = userWriteService;
-		this.portalLookUpService = portalLookUpService;
+		this.memberLookUpService = memberLookUpService;
 		this.tokenWriteService = tokenWriteService;
 		this.sessionMapper = sessionMapper;
 		this.events = events;
@@ -174,7 +174,7 @@ public class SessionServiceImpl implements SessionService {
 						session.getImpersonatorName(), session.getAbsoluteExpiresAt())
 				: null;
 		AccessTokenClaimsDTO claims = new AccessTokenClaimsDTO(user.id(), user.email(), user.fullName(),
-				this.portalLookUpService.findActivePortalIds(user.id()), session.getId(), actor);
+				this.memberLookUpService.findActivePortalIds(user.id()), session.getId(), actor);
 		return new SessionTokensDTO(this.tokenWriteService.issueAccessToken(claims), refreshToken,
 				session.expiresAt());
 	}

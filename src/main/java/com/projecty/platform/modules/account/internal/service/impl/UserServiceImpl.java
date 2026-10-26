@@ -26,7 +26,10 @@ import com.projecty.platform.modules.account.internal.mapper.UserMapper;
 import com.projecty.platform.modules.account.internal.repository.AppUserRepository;
 import com.projecty.platform.modules.account.internal.service.EmailTokenService;
 import com.projecty.platform.modules.account.internal.service.UserService;
-import com.projecty.platform.modules.portal.api.PortalLookUpService;
+import com.projecty.platform.modules.audit.api.AuditWriteService;
+import com.projecty.platform.modules.audit.api.dto.AuditEventCreateDTO;
+import com.projecty.platform.modules.member.api.MemberLookUpService;
+import com.projecty.platform.modules.shared.constants.AuditEventConstants;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -36,7 +39,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Composite service: owns {@code AppUser} and reads portal memberships through the portal module's API.
+ * Composite service: owns {@code AppUser} and reads portal memberships through the member module's API.
  */
 @Service
 public class UserServiceImpl implements UserService {
@@ -45,7 +48,9 @@ public class UserServiceImpl implements UserService {
 
 	private final EmailTokenService emailTokenService;
 
-	private final PortalLookUpService portalLookUpService;
+	private final MemberLookUpService memberLookUpService;
+
+	private final AuditWriteService auditWriteService;
 
 	private final PasswordEncoder passwordEncoder;
 
@@ -62,12 +67,13 @@ public class UserServiceImpl implements UserService {
 	private final String timingDummyHash;
 
 	public UserServiceImpl(AppUserRepository repository, EmailTokenService emailTokenService,
-			PortalLookUpService portalLookUpService, PasswordEncoder passwordEncoder,
-			PasswordPolicyHelper passwordPolicy, UserMapper userMapper, ApplicationEventPublisher events,
-			AccountProperties properties, Clock clock) {
+			MemberLookUpService memberLookUpService, AuditWriteService auditWriteService,
+			PasswordEncoder passwordEncoder, PasswordPolicyHelper passwordPolicy, UserMapper userMapper,
+			ApplicationEventPublisher events, AccountProperties properties, Clock clock) {
 		this.repository = repository;
 		this.emailTokenService = emailTokenService;
-		this.portalLookUpService = portalLookUpService;
+		this.memberLookUpService = memberLookUpService;
+		this.auditWriteService = auditWriteService;
 		this.passwordEncoder = passwordEncoder;
 		this.passwordPolicy = passwordPolicy;
 		this.userMapper = userMapper;
@@ -90,6 +96,33 @@ public class UserServiceImpl implements UserService {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
+	public Optional<UserResponseDTO> findByEmail(String email) {
+		return this.repository.findByEmail(email.strip()).map(this.userMapper::toResponse);
+	}
+
+	@Override
+	@Transactional
+	public UserResponseDTO createVerifiedUser(String email, String fullName, String password) {
+		String address = email.strip();
+		this.passwordPolicy.check(password, address);
+		if (this.repository.existsByEmail(address)) {
+			throw emailTaken();
+		}
+		Instant now = this.clock.instant();
+		AppUser user;
+		try {
+			user = this.repository.saveAndFlush(
+					new AppUser(address, fullName.strip(), this.passwordEncoder.encode(password), now));
+		}
+		catch (DataIntegrityViolationException ex) {
+			throw emailTaken();
+		}
+		user.markEmailVerified(now);
+		return this.userMapper.toResponse(user);
+	}
+
+	@Override
 	@Transactional(noRollbackFor = AppException.class)
 	public UserResponseDTO authenticate(String email, String password) {
 		Instant now = this.clock.instant();
@@ -104,7 +137,10 @@ public class UserServiceImpl implements UserService {
 		if (!this.passwordEncoder.matches(password, user.getPasswordHash())) {
 			user.recordFailedLogin(now, this.properties.lockoutMaxAttempts(), this.properties.lockoutWindow(),
 					this.properties.lockoutDuration());
-			throw user.isLocked(now) ? locked(user) : invalidCredentials();
+			boolean nowLocked = user.isLocked(now);
+			audit(nowLocked ? AuditEventConstants.ACTION_ACCOUNT_LOCKED : AuditEventConstants.ACTION_LOGIN_FAILED,
+					user, nowLocked ? "Locked after repeated failed sign-ins" : null);
+			throw nowLocked ? locked(user) : invalidCredentials();
 		}
 		if (!user.isActive()) {
 			throw new AppException(HttpStatus.FORBIDDEN, AccountConstants.ERROR_ACCOUNT_DISABLED,
@@ -115,6 +151,7 @@ public class UserServiceImpl implements UserService {
 					AccountConstants.MESSAGE_EMAIL_NOT_VERIFIED);
 		}
 		user.recordSuccessfulLogin(now);
+		audit(AuditEventConstants.ACTION_LOGIN_SUCCEEDED, user, null);
 		return this.userMapper.toResponse(user);
 	}
 
@@ -135,6 +172,7 @@ public class UserServiceImpl implements UserService {
 			// Another signup with the same email won the race.
 			throw emailTaken();
 		}
+		audit(AuditEventConstants.ACTION_USER_SIGNED_UP, user, null);
 		this.emailTokenService.issue(user, EmailTokenPurpose.VERIFY_EMAIL);
 	}
 
@@ -168,7 +206,17 @@ public class UserServiceImpl implements UserService {
 		AppUser user = this.repository.findById(userId).orElseThrow();
 		this.passwordPolicy.check(newPassword, user.getEmail());
 		user.resetPassword(this.passwordEncoder.encode(newPassword), this.clock.instant());
+		audit(AuditEventConstants.ACTION_PASSWORD_RESET, user, "All sessions revoked");
 		this.events.publishEvent(new UserPasswordResetEvent(user.getId()));
+	}
+
+	/**
+	 * Account-level events carry no portal. The user is both actor and target.
+	 */
+	private void audit(String action, AppUser user, String detail) {
+		this.auditWriteService.record(new AuditEventCreateDTO(AuditEventConstants.CATEGORY_AUTH, action,
+				AuditEventConstants.ACTOR_USER, user.getId(), user.getFullName(), null, user.getId(),
+				user.getFullName(), detail));
 	}
 
 	@Override
@@ -177,7 +225,7 @@ public class UserServiceImpl implements UserService {
 		AppUser user = this.repository.findById(userId)
 			.orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, AccountConstants.ERROR_USER_NOT_FOUND,
 					AccountConstants.MESSAGE_USER_NOT_FOUND));
-		return this.userMapper.toMe(user, this.portalLookUpService.findMemberships(userId));
+		return this.userMapper.toMe(user, this.memberLookUpService.findMemberships(userId));
 	}
 
 	@Override

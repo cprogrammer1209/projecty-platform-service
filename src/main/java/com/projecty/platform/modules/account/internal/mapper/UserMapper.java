@@ -5,7 +5,7 @@ import java.util.List;
 import com.projecty.platform.modules.account.api.dto.UserResponseDTO;
 import com.projecty.platform.modules.account.internal.dto.MeResponseDTO;
 import com.projecty.platform.modules.account.internal.entity.AppUser;
-import com.projecty.platform.modules.portal.api.dto.PortalMembershipResponseDTO;
+import com.projecty.platform.modules.member.api.dto.PortalMembershipResponseDTO;
 
 import org.springframework.stereotype.Component;
 

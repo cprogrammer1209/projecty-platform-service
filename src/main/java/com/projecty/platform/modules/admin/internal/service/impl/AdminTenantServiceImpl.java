@@ -18,7 +18,9 @@ import com.projecty.platform.modules.admin.internal.dto.TenantUserResponseDTO;
 import com.projecty.platform.modules.admin.internal.mapper.AdminMapper;
 import com.projecty.platform.modules.admin.internal.service.AdminTenantService;
 import com.projecty.platform.modules.portal.api.PortalLookUpService;
-import com.projecty.platform.modules.portal.api.dto.PortalMemberResponseDTO;
+import com.projecty.platform.modules.member.api.MemberLookUpService;
+import com.projecty.platform.modules.member.api.dto.MemberCountResponseDTO;
+import com.projecty.platform.modules.member.api.dto.PortalMemberResponseDTO;
 import com.projecty.platform.modules.portal.api.dto.PortalSummaryResponseDTO;
 
 import org.springframework.http.HttpStatus;
@@ -26,21 +28,24 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Aggregate service: no data of its own. Joins portals (portal module) with identities (account module) for
- * the admin console.
+ * Aggregate service: no data of its own. Joins portals (portal module), their members (member module) and
+ * identities (account module) for the admin console.
  */
 @Service
 public class AdminTenantServiceImpl implements AdminTenantService {
 
 	private final PortalLookUpService portalLookUpService;
 
+	private final MemberLookUpService memberLookUpService;
+
 	private final UserLookUpService userLookUpService;
 
 	private final AdminMapper mapper;
 
-	public AdminTenantServiceImpl(PortalLookUpService portalLookUpService, UserLookUpService userLookUpService,
-			AdminMapper mapper) {
+	public AdminTenantServiceImpl(PortalLookUpService portalLookUpService, MemberLookUpService memberLookUpService,
+			UserLookUpService userLookUpService, AdminMapper mapper) {
 		this.portalLookUpService = portalLookUpService;
+		this.memberLookUpService = memberLookUpService;
 		this.userLookUpService = userLookUpService;
 		this.mapper = mapper;
 	}
@@ -51,8 +56,11 @@ public class AdminTenantServiceImpl implements AdminTenantService {
 		List<PortalSummaryResponseDTO> portals = this.portalLookUpService.findAllPortals();
 		Map<UUID, UserResponseDTO> owners = usersById(
 				portals.stream().map(PortalSummaryResponseDTO::ownerUserId).distinct().toList());
+		Map<UUID, MemberCountResponseDTO> counts = this.memberLookUpService
+			.countMembers(portals.stream().map(PortalSummaryResponseDTO::id).toList());
 		return portals.stream()
-			.map((portal) -> this.mapper.toTenant(portal, owners.get(portal.ownerUserId()), null))
+			.map((portal) -> this.mapper.toTenant(portal, owners.get(portal.ownerUserId()), counts.get(portal.id()),
+					null))
 			.toList();
 	}
 
@@ -61,7 +69,7 @@ public class AdminTenantServiceImpl implements AdminTenantService {
 	public TenantResponseDTO getTenant(UUID tenantId) {
 		PortalSummaryResponseDTO portal = this.portalLookUpService.findPortal(tenantId)
 			.orElseThrow(AdminTenantServiceImpl::tenantNotFound);
-		List<UUID> memberIds = this.portalLookUpService.findMembers(tenantId)
+		List<UUID> memberIds = this.memberLookUpService.findMembers(tenantId)
 			.stream()
 			.map(PortalMemberResponseDTO::userId)
 			.toList();
@@ -74,7 +82,8 @@ public class AdminTenantServiceImpl implements AdminTenantService {
 			.orElse(null);
 		UserResponseDTO owner = users.containsKey(portal.ownerUserId()) ? users.get(portal.ownerUserId())
 				: this.userLookUpService.findById(portal.ownerUserId()).orElse(null);
-		return this.mapper.toTenant(portal, owner, lastActivity);
+		return this.mapper.toTenant(portal, owner, this.memberLookUpService.countMembers(List.of(tenantId)).get(tenantId),
+				lastActivity);
 	}
 
 	@Override
@@ -83,7 +92,7 @@ public class AdminTenantServiceImpl implements AdminTenantService {
 		if (this.portalLookUpService.findPortal(tenantId).isEmpty()) {
 			throw tenantNotFound();
 		}
-		List<PortalMemberResponseDTO> members = this.portalLookUpService.findMembers(tenantId);
+		List<PortalMemberResponseDTO> members = this.memberLookUpService.findMembers(tenantId);
 		Map<UUID, UserResponseDTO> users = usersById(members.stream().map(PortalMemberResponseDTO::userId).toList());
 		return members.stream()
 			.filter((member) -> users.containsKey(member.userId()))

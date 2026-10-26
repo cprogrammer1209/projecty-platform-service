@@ -48,7 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * End-to-end auth flows against a real Postgres (Testcontainers). Email links are read from the published
  * {@link EmailTokenIssuedEvent} events; emails are captured at the {@link MailService} boundary instead of sent.
  */
-@SpringBootTest(properties = "projecty.portal.max-portals-per-user=2")
+@SpringBootTest(properties = "projecty.member.max-portals-per-user=2")
 @AutoConfigureMockMvc
 @RecordApplicationEvents
 @Import({ TestcontainersConfiguration.class, AuthFlowIntegrationTests.CapturingMail.class })
@@ -93,7 +93,7 @@ class AuthFlowIntegrationTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"name\":\"Acme\",\"slug\":\"%s\"}".formatted(slug)))
 			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.data.profile").value("PORTAL_OWNER"))
+			.andExpect(jsonPath("$.data.slug").value(slug))
 			.andReturn();
 		String portalId = JsonPath.read(created.getResponse().getContentAsString(), "$.data.id");
 

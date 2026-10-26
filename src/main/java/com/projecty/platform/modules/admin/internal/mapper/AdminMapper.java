@@ -10,7 +10,8 @@ import com.projecty.platform.modules.admin.internal.dto.AdminSessionTokensDTO;
 import com.projecty.platform.modules.admin.internal.dto.TenantResponseDTO;
 import com.projecty.platform.modules.admin.internal.dto.TenantUserResponseDTO;
 import com.projecty.platform.modules.admin.internal.entity.AdminUser;
-import com.projecty.platform.modules.portal.api.dto.PortalMemberResponseDTO;
+import com.projecty.platform.modules.member.api.dto.MemberCountResponseDTO;
+import com.projecty.platform.modules.member.api.dto.PortalMemberResponseDTO;
 import com.projecty.platform.modules.portal.api.dto.PortalSummaryResponseDTO;
 
 import org.springframework.stereotype.Component;
@@ -31,15 +32,17 @@ public class AdminMapper {
 	 * @param owner null if the owner's identity no longer exists
 	 */
 	public TenantResponseDTO toTenant(PortalSummaryResponseDTO portal, UserResponseDTO owner,
-			Instant lastActivityAt) {
+			MemberCountResponseDTO counts, Instant lastActivityAt) {
+		long total = (counts != null) ? counts.total() : 0;
+		long active = (counts != null) ? counts.active() : 0;
 		return new TenantResponseDTO(portal.id(), portal.name(), portal.slug(), portal.ownerUserId(),
 				(owner != null) ? owner.fullName() : null, (owner != null) ? owner.email() : null, portal.createdAt(),
-				portal.memberCount(), portal.activeMemberCount(), lastActivityAt);
+				total, active, lastActivityAt);
 	}
 
 	public TenantUserResponseDTO toTenantUser(PortalMemberResponseDTO member, UserResponseDTO user) {
 		boolean active = user.active() && AdminConstants.MEMBER_STATUS_ACTIVE.equals(member.status());
-		return new TenantUserResponseDTO(user.id(), user.fullName(), user.email(), member.profile(), active,
+		return new TenantUserResponseDTO(user.id(), user.fullName(), user.email(), member.profileName(), active,
 				user.lastLoginAt(), member.joinedAt());
 	}
 

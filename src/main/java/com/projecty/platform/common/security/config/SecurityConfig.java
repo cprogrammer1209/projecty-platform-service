@@ -6,6 +6,7 @@ import com.projecty.platform.common.security.filter.PortalContextFilter;
 import com.projecty.platform.common.security.handler.RestAccessDeniedHandler;
 import com.projecty.platform.common.security.handler.RestAuthenticationEntryPoint;
 import com.projecty.platform.common.security.handler.SecurityErrorWriter;
+import com.projecty.platform.common.service.PortalAccessService;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -37,7 +38,8 @@ public class SecurityConfig {
 
 	@Bean
 	public SecurityFilterChain apiSecurity(HttpSecurity http, RestAuthenticationEntryPoint authenticationEntryPoint,
-			RestAccessDeniedHandler accessDeniedHandler, SecurityErrorWriter errorWriter) throws Exception {
+			RestAccessDeniedHandler accessDeniedHandler, SecurityErrorWriter errorWriter,
+			PortalAccessService portalAccessService) throws Exception {
 		return http.csrf((csrf) -> csrf.disable())
 			.cors(Customizer.withDefaults())
 			.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -59,7 +61,7 @@ public class SecurityConfig {
 				.accessDeniedHandler(accessDeniedHandler))
 			.exceptionHandling((exceptions) -> exceptions.authenticationEntryPoint(authenticationEntryPoint)
 				.accessDeniedHandler(accessDeniedHandler))
-			.addFilterAfter(new PortalContextFilter(errorWriter), BearerTokenAuthenticationFilter.class)
+			.addFilterAfter(new PortalContextFilter(errorWriter, portalAccessService), BearerTokenAuthenticationFilter.class)
 			.build();
 	}
 

@@ -12,19 +12,23 @@ import com.projecty.platform.modules.portal.internal.dto.SlugAvailabilityRespons
 public interface PortalService extends PortalLookUpService {
 
 	/**
-	 * Creates a portal with the caller as its Owner (PTL-US-01, PTL-BR-03).
+	 * Creates a portal owned by the caller (PTL-US-01, PTL-BR-03). Publishes {@code PortalCreatedEvent}, on
+	 * which the member module adds the caller as Admin (and enforces the portal limit, PTL-BR-10). Audited and
+	 * published to the outbox as {@code PortalCreated}.
+	 * @param userName the caller's name, for the audit log
 	 */
-	PortalResponseDTO create(UUID userId, PortalCreateDTO request);
+	PortalResponseDTO create(UUID userId, String userName, PortalCreateDTO request);
 
 	SlugAvailabilityResponseDTO checkSlug(String slug);
 
 	/**
-	 * The portal of the current request ({@code RequestPortalContext}) as the caller sees it.
+	 * The portal of the current request ({@code RequestPortalContext}).
 	 */
-	CurrentPortalResponseDTO getCurrent(UUID userId);
+	CurrentPortalResponseDTO getCurrent();
 
 	/**
-	 * Changes the current portal's display settings (PTL-US-02). Owner only for now; audited (PTL-BR-04).
+	 * Changes the current portal's display settings (PTL-US-02); audited (PTL-BR-04). The permission is
+	 * checked by {@code @RequirePermission} on the endpoint.
 	 * @param userName the caller's name, for the audit log
 	 */
 	CurrentPortalResponseDTO updateSettings(UUID userId, String userName, PortalSettingsUpdateDTO request);

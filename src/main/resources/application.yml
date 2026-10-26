@@ -38,8 +38,9 @@ projecty:
     lockout-max-attempts: 5
     lockout-window: 15m
     lockout-duration: 15m
-  portal:
+  member:
     max-portals-per-user: 20
+    invitation-ttl: 7d
   admin:
     idle-timeout: 1h
     absolute-timeout: 12h
@@ -55,3 +56,7 @@ projecty:
       full-name: Platform Admin
   impersonation:
     code-ttl: 2m
+  outbox:
+    poll-interval: 1s
+    batch-size: 100
+    relay-enabled: true

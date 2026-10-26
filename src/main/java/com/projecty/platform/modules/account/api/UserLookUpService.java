@@ -16,4 +16,9 @@ public interface UserLookUpService {
 	 */
 	List<UserResponseDTO> findByIds(Collection<UUID> userIds);
 
+	/**
+	 * Case-insensitive.
+	 */
+	Optional<UserResponseDTO> findByEmail(String email);
+
 }

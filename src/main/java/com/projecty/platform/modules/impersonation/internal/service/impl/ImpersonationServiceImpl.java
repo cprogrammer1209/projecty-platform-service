@@ -20,7 +20,7 @@ import com.projecty.platform.modules.impersonation.internal.dto.ImpersonationSta
 import com.projecty.platform.modules.impersonation.internal.entity.Impersonation;
 import com.projecty.platform.modules.impersonation.internal.repository.ImpersonationRepository;
 import com.projecty.platform.modules.impersonation.internal.service.ImpersonationService;
-import com.projecty.platform.modules.portal.api.PortalLookUpService;
+import com.projecty.platform.modules.member.api.MemberLookUpService;
 import com.projecty.platform.modules.session.api.SessionWriteService;
 import com.projecty.platform.modules.session.api.dto.IssuedSessionDTO;
 import com.projecty.platform.modules.session.api.dto.SupportSessionCreateDTO;
@@ -41,7 +41,7 @@ public class ImpersonationServiceImpl implements ImpersonationService {
 
 	private final ImpersonationRepository repository;
 
-	private final PortalLookUpService portalLookUpService;
+	private final MemberLookUpService memberLookUpService;
 
 	private final UserLookUpService userLookUpService;
 
@@ -57,12 +57,12 @@ public class ImpersonationServiceImpl implements ImpersonationService {
 
 	private final Clock clock;
 
-	public ImpersonationServiceImpl(ImpersonationRepository repository, PortalLookUpService portalLookUpService,
+	public ImpersonationServiceImpl(ImpersonationRepository repository, MemberLookUpService memberLookUpService,
 			UserLookUpService userLookUpService, AdminLookUpService adminLookUpService,
 			SessionWriteService sessionWriteService, AuditWriteService auditWriteService,
 			ImpersonationProperties properties, AppProperties appProperties, Clock clock) {
 		this.repository = repository;
-		this.portalLookUpService = portalLookUpService;
+		this.memberLookUpService = memberLookUpService;
 		this.userLookUpService = userLookUpService;
 		this.adminLookUpService = adminLookUpService;
 		this.sessionWriteService = sessionWriteService;
@@ -148,7 +148,7 @@ public class ImpersonationServiceImpl implements ImpersonationService {
 	 * The target must be an active identity and an active member of the tenant.
 	 */
 	private Optional<UserResponseDTO> eligibleTarget(UUID portalId, UUID userId) {
-		if (!this.portalLookUpService.isActiveMember(portalId, userId)) {
+		if (!this.memberLookUpService.isActiveMember(portalId, userId)) {
 			return Optional.empty();
 		}
 		return this.userLookUpService.findById(userId).filter(UserResponseDTO::active);

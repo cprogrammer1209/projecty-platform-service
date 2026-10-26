@@ -9,6 +9,10 @@ public final class AuditConstants {
 
 	public static final int DETAIL_MAX_LENGTH = 2000;
 
+	public static final int DEFAULT_PAGE_SIZE = 25;
+
+	public static final int MAX_PAGE_SIZE = 100;
+
 	private AuditConstants() {
 	}
 

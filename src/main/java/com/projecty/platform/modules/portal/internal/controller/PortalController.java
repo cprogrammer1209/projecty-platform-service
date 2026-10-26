@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import jakarta.validation.Valid;
 
+import com.projecty.platform.common.constants.AppConstants;
 import com.projecty.platform.common.dto.AppResponse;
 import com.projecty.platform.modules.portal.internal.dto.PortalCreateDTO;
 import com.projecty.platform.modules.portal.internal.dto.PortalResponseDTO;
@@ -39,7 +40,8 @@ public class PortalController {
 	@ResponseStatus(HttpStatus.CREATED)
 	public AppResponse<PortalResponseDTO> create(@AuthenticationPrincipal Jwt jwt,
 			@Valid @RequestBody PortalCreateDTO request) {
-		return AppResponse.ok(this.portalService.create(UUID.fromString(jwt.getSubject()), request));
+		return AppResponse.ok(this.portalService.create(UUID.fromString(jwt.getSubject()),
+				jwt.getClaimAsString(AppConstants.CLAIM_NAME), request));
 	}
 
 	@GetMapping("/slug-availability")
