@@ -17,18 +17,23 @@ public final class MemberConstants {
 
 	/**
 	 * The system profiles every portal gets (same as Flyway V5). Permissions are fixed until custom profiles
-	 * (V1); the project-level matrix arrives with projects in M1.
+	 * (V1). The PROJECTS_* permissions are enforced by the Work service (Flyway V8 added them to existing portals).
 	 */
 	public static final List<ProfileDefinition> SYSTEM_PROFILES = List.of(
 			new ProfileDefinition(PROFILE_ADMIN, "Admin", "Everything, including portal settings and users.",
 					Set.of(PermissionConstants.PORTAL_SETTINGS_MANAGE, PermissionConstants.USERS_VIEW,
-							PermissionConstants.USERS_MANAGE, PermissionConstants.AUDIT_VIEW)),
+							PermissionConstants.USERS_MANAGE, PermissionConstants.AUDIT_VIEW,
+							PermissionConstants.PROJECTS_VIEW, PermissionConstants.PROJECTS_CREATE,
+							PermissionConstants.PROJECTS_EDIT, PermissionConstants.PROJECTS_DELETE)),
 			new ProfileDefinition(PROFILE_MANAGER, "Manager", "Runs projects. Sees the people in the portal.",
-					Set.of(PermissionConstants.USERS_VIEW)),
+					Set.of(PermissionConstants.USERS_VIEW, PermissionConstants.PROJECTS_VIEW,
+							PermissionConstants.PROJECTS_CREATE, PermissionConstants.PROJECTS_EDIT,
+							PermissionConstants.PROJECTS_DELETE)),
 			new ProfileDefinition(PROFILE_EMPLOYEE, "Employee",
-					"Works on assigned items. Sees the people in the portal.", Set.of(PermissionConstants.USERS_VIEW)),
+					"Works on assigned items. Sees the people in the portal.",
+					Set.of(PermissionConstants.USERS_VIEW, PermissionConstants.PROJECTS_VIEW)),
 			new ProfileDefinition(PROFILE_CLIENT, "Client", "External user. Sees only what is shared with them.",
-					Set.of()));
+					Set.of(PermissionConstants.PROJECTS_VIEW)));
 
 	public static final String INVITE_PAGE = "invite";
 

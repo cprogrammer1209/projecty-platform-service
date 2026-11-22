@@ -140,7 +140,8 @@ public class MemberServiceImpl implements MemberService {
 				"Profile " + current.getName() + " → " + next.getName());
 		publish(OutboxEventConstants.EVENT_USER_PROFILE_CHANGED, portalId, userId, actorId, actorName,
 				Map.of("portalId", portalId, "userId", userId, "actorUserId", actorId, "fromProfileId",
-						current.getId(), "toProfileId", next.getId()));
+						current.getId(), "toProfileId", next.getId(), "profileKey", next.getProfileKey(),
+						"permissions", permissionsOf(next)));
 		return toMember(member, portalId);
 	}
 
@@ -174,10 +175,12 @@ public class MemberServiceImpl implements MemberService {
 		if (!member.isActive()) {
 			requireRoomForAnotherPortal(userId);
 			member.reactivate();
+			Profile profile = profile(member.getProfileId());
 			audit(AuditEventConstants.ACTION_USER_REACTIVATED, actorId, actorName, portalId, userId, null);
 			publish(OutboxEventConstants.EVENT_USER_ACTIVATED, portalId, userId, actorId, actorName,
 					Map.of("portalId", portalId, "userId", userId, "actorUserId", actorId, "profileId",
-							member.getProfileId()));
+							profile.getId(), "profileKey", profile.getProfileKey(), "permissions",
+							permissionsOf(profile)));
 		}
 		return toMember(member, portalId);
 	}
@@ -187,15 +190,19 @@ public class MemberServiceImpl implements MemberService {
 	public void setUpNewPortal(UUID portalId, UUID ownerUserId) {
 		requireRoomForAnotherPortal(ownerUserId);
 		Instant now = this.clock.instant();
-		UUID adminProfileId = null;
+		Profile adminProfile = null;
 		for (MemberConstants.ProfileDefinition definition : MemberConstants.SYSTEM_PROFILES) {
 			Profile profile = this.profileRepository.save(new Profile(portalId, definition.key(), definition.name(),
 					definition.description(), definition.permissions(), now));
 			if (MemberConstants.PROFILE_ADMIN.equals(definition.key())) {
-				adminProfileId = profile.getId();
+				adminProfile = profile;
 			}
 		}
-		this.memberRepository.save(new PortalMember(portalId, ownerUserId, adminProfileId, now));
+		this.memberRepository.save(new PortalMember(portalId, ownerUserId, adminProfile.getId(), now));
+		// The owner joins like anyone else, so other services learn the owner's profile and permissions too.
+		publish(OutboxEventConstants.EVENT_USER_ACTIVATED, portalId, ownerUserId, ownerUserId, null,
+				Map.of("portalId", portalId, "userId", ownerUserId, "profileId", adminProfile.getId(), "profileKey",
+						adminProfile.getProfileKey(), "permissions", permissionsOf(adminProfile)));
 	}
 
 	@Override
@@ -214,8 +221,10 @@ public class MemberServiceImpl implements MemberService {
 		else {
 			this.memberRepository.save(new PortalMember(portalId, userId, profileId, this.clock.instant()));
 		}
+		Profile profile = profile(profileId);
 		publish(OutboxEventConstants.EVENT_USER_ACTIVATED, portalId, userId, userId, null,
-				Map.of("portalId", portalId, "userId", userId, "profileId", profileId));
+				Map.of("portalId", portalId, "userId", userId, "profileId", profileId, "profileKey",
+						profile.getProfileKey(), "permissions", permissionsOf(profile)));
 	}
 
 	/**
@@ -238,6 +247,11 @@ public class MemberServiceImpl implements MemberService {
 			throw new AppException(HttpStatus.UNPROCESSABLE_CONTENT, MemberConstants.ERROR_LAST_ADMIN,
 					MemberConstants.MESSAGE_LAST_ADMIN);
 		}
+	}
+
+	/** Sorted, so the same profile always produces the same event payload. */
+	private static List<String> permissionsOf(Profile profile) {
+		return profile.getPermissions().stream().sorted().toList();
 	}
 
 	private static boolean isAdmin(Profile profile) {
