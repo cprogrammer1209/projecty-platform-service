@@ -9,6 +9,7 @@ import java.util.UUID;
 
 import com.projecty.platform.common.constants.AppConstants;
 
+import com.projecty.platform.external.redis.service.KeyValueStore;
 import com.projecty.platform.modules.token.api.dto.AccessTokenClaimsDTO;
 import com.projecty.platform.modules.token.api.dto.AdminAccessTokenClaimsDTO;
 import com.projecty.platform.modules.token.api.dto.ImpersonationClaimDTO;
@@ -40,14 +41,24 @@ public class TokenServiceImpl implements TokenService {
 
 	private final TokenProperties properties;
 
+	private final KeyValueStore keyValueStore;
+
 	private final Clock clock;
 
 	public TokenServiceImpl(JwtEncoder encoder, SigningKeyService signingKeyService, TokenProperties properties,
-			Clock clock) {
+			KeyValueStore keyValueStore, Clock clock) {
 		this.encoder = encoder;
 		this.signingKeyService = signingKeyService;
 		this.properties = properties;
+		this.keyValueStore = keyValueStore;
 		this.clock = clock;
+	}
+
+	@Override
+	public void denySession(UUID sessionId) {
+		// Long enough for any token of the session to expire on its own, no longer.
+		this.keyValueStore.put(TokenConstants.DENYLIST_KEY_PREFIX + sessionId, TokenConstants.DENYLIST_VALUE,
+				this.properties.accessTokenTtl());
 	}
 
 	@Override

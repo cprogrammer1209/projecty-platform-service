@@ -12,6 +12,13 @@ spring:
   mail:
     host: localhost
     port: 1025
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      # Redis is an optimisation, so a slow or missing server must not hold requests up.
+      timeout: 500ms
+      connect-timeout: 500ms
   kafka:
     bootstrap-servers: localhost:9092
     producer:
@@ -24,6 +31,12 @@ spring:
         max.block.ms: 5000
         request.timeout.ms: 5000
         delivery.timeout.ms: 10000
+
+# Redis is allowed to be down (the app falls back to the database), so it must not turn /actuator/health red.
+management:
+  health:
+    redis:
+      enabled: false
 
 server:
   port: 8081
@@ -74,6 +87,20 @@ projecty:
     relay-enabled: true
     retention: 7d
     purge-interval: 1h
+  # Per client IP and endpoint group (see RateLimitConstants). The per-account lockout under account/admin stays.
+  rate-limit:
+    enabled: true
+    limits:
+      login: { limit: 10, window: 1m }
+      refresh: { limit: 60, window: 1m }
+      signup: { limit: 10, window: 1h }
+      email: { limit: 5, window: 15m }
+      token: { limit: 20, window: 15m }
+  redis:
+    type: redis # "memory" keeps everything in this process (used by the tests)
+    access-ttl: 60s # safety net for the membership cache; changes also evict it at once
+    response-ttl: 60s # cached API responses and lookups; a change moves their version key, this is the safety net
+    backoff: 10s # after a failed call Redis is left alone this long, so an outage costs one timeout, not one per call
   broker:
     type: kafka # "logging" only logs events (used by the tests)
     send-timeout: 5s

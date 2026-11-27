@@ -102,11 +102,11 @@ public class SessionServiceImpl implements SessionService {
 		AuthSession session = this.sessionRepository.findById(token.getSessionId())
 			.orElseThrow(SessionServiceImpl::sessionExpired);
 		if (token.isUsed()) {
-			session.revoke(now);
+			revoke(session, now);
 			throw sessionExpired();
 		}
 		if (session.isImpersonationOver(now)) {
-			session.revoke(now);
+			revoke(session, now);
 			this.events.publishEvent(new SupportSessionExpiredEvent(session.getImpersonationId()));
 			throw sessionExpired();
 		}
@@ -116,7 +116,7 @@ public class SessionServiceImpl implements SessionService {
 		UserResponseDTO user = this.userLookUpService.findById(session.getUserId())
 			.orElseThrow(SessionServiceImpl::sessionExpired);
 		if (!user.active()) {
-			session.revoke(now);
+			revoke(session, now);
 			throw sessionExpired();
 		}
 		token.markUsed(now);
@@ -129,12 +129,14 @@ public class SessionServiceImpl implements SessionService {
 	public void logout(String refreshToken) {
 		Instant now = this.clock.instant();
 		findToken(refreshToken).flatMap((token) -> this.sessionRepository.findById(token.getSessionId()))
-			.ifPresent((session) -> session.revoke(now));
+			.ifPresent((session) -> revoke(session, now));
 	}
 
 	@Override
 	@Transactional
 	public void revokeAllForUser(UUID userId) {
+		// The bulk update below cannot say which sessions it ended, so deny them first.
+		this.sessionRepository.findActiveIdsByUserId(userId).forEach(this.tokenWriteService::denySession);
 		this.sessionRepository.revokeAllForUser(userId, this.clock.instant());
 	}
 
@@ -158,7 +160,7 @@ public class SessionServiceImpl implements SessionService {
 		return findToken(refreshToken).flatMap((token) -> this.sessionRepository.findById(token.getSessionId()))
 			.filter(AuthSession::isImpersonated)
 			.map((session) -> {
-				session.revoke(now);
+				revoke(session, now);
 				return session.getImpersonationId();
 			});
 	}
@@ -177,6 +179,14 @@ public class SessionServiceImpl implements SessionService {
 				this.memberLookUpService.findActivePortalIds(user.id()), session.getId(), actor);
 		return new SessionTokensDTO(this.tokenWriteService.issueAccessToken(claims), refreshToken,
 				session.expiresAt());
+	}
+
+	/**
+	 * Ends the session and, with it, the access tokens already handed out for it.
+	 */
+	private void revoke(AuthSession session, Instant now) {
+		session.revoke(now);
+		this.tokenWriteService.denySession(session.getId());
 	}
 
 	private Optional<RefreshToken> findToken(String refreshToken) {

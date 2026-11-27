@@ -5,6 +5,8 @@ import java.util.Collection;
 import java.util.List;
 
 import com.projecty.platform.common.constants.AppConstants;
+import com.projecty.platform.external.redis.service.KeyValueStore;
+import com.projecty.platform.modules.token.internal.helper.DenylistValidator;
 import com.projecty.platform.modules.token.internal.service.SigningKeyService;
 
 import org.springframework.context.annotation.Bean;
@@ -38,13 +40,15 @@ public class JwtConfig {
 	}
 
 	@Bean
-	public JwtDecoder jwtDecoder(SigningKeyService signingKeyService, TokenProperties properties) {
+	public JwtDecoder jwtDecoder(SigningKeyService signingKeyService, TokenProperties properties,
+			KeyValueStore keyValueStore) {
 		NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSource(signingKeyService.jwkSource()).build();
 		OAuth2TokenValidator<Jwt> audience = new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
 				(aud) -> aud != null
 						&& (aud.contains(properties.audience()) || aud.contains(properties.adminAudience())));
-		decoder.setJwtValidator(JwtValidators
-			.createDefaultWithValidators(JwtValidators.createDefaultWithIssuer(properties.issuer()), audience));
+		decoder.setJwtValidator(JwtValidators.createDefaultWithValidators(
+				JwtValidators.createDefaultWithIssuer(properties.issuer()), audience,
+				new DenylistValidator(keyValueStore)));
 		return decoder;
 	}
 

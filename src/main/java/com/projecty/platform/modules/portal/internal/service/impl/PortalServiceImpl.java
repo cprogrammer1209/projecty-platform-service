@@ -30,6 +30,7 @@ import com.projecty.platform.modules.portal.internal.dto.PortalResponseDTO;
 import com.projecty.platform.modules.portal.internal.dto.PortalSettingsUpdateDTO;
 import com.projecty.platform.modules.portal.internal.dto.SlugAvailabilityResponseDTO;
 import com.projecty.platform.modules.portal.internal.entity.Portal;
+import com.projecty.platform.modules.portal.internal.helper.PortalCache;
 import com.projecty.platform.modules.portal.internal.helper.SlugRulesHelper;
 import com.projecty.platform.modules.portal.internal.mapper.PortalMapper;
 import com.projecty.platform.modules.portal.internal.repository.PortalRepository;
@@ -62,17 +63,21 @@ public class PortalServiceImpl implements PortalService {
 
 	private final ApplicationEventPublisher events;
 
+	private final PortalCache portalCache;
+
 	private final Clock clock;
 
 	public PortalServiceImpl(PortalRepository portalRepository, PortalMapper portalMapper,
 			RequestPortalContext portalContext, AuditWriteService auditWriteService,
-			OutboxWriteService outboxWriteService, ApplicationEventPublisher events, Clock clock) {
+			OutboxWriteService outboxWriteService, ApplicationEventPublisher events, PortalCache portalCache,
+			Clock clock) {
 		this.portalRepository = portalRepository;
 		this.portalMapper = portalMapper;
 		this.portalContext = portalContext;
 		this.auditWriteService = auditWriteService;
 		this.outboxWriteService = outboxWriteService;
 		this.events = events;
+		this.portalCache = portalCache;
 		this.clock = clock;
 	}
 
@@ -85,13 +90,15 @@ public class PortalServiceImpl implements PortalService {
 	@Override
 	@Transactional(readOnly = true)
 	public Optional<PortalSummaryResponseDTO> findPortal(UUID portalId) {
-		return this.portalRepository.findById(portalId).map(this.portalMapper::toSummary);
+		return this.portalCache.findPortal(portalId,
+				() -> this.portalRepository.findById(portalId).map(this.portalMapper::toSummary));
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<PortalSummaryResponseDTO> findByIds(Collection<UUID> portalIds) {
-		return this.portalRepository.findAllById(portalIds).stream().map(this.portalMapper::toSummary).toList();
+		return this.portalCache.findByIds(portalIds,
+				(ids) -> this.portalRepository.findAllById(ids).stream().map(this.portalMapper::toSummary).toList());
 	}
 
 	@Override
@@ -128,7 +135,8 @@ public class PortalServiceImpl implements PortalService {
 	@Override
 	@Transactional(readOnly = true)
 	public CurrentPortalResponseDTO getCurrent() {
-		return this.portalMapper.toCurrent(currentPortal());
+		return this.portalCache.current(this.portalContext.requirePortalId(),
+				() -> this.portalMapper.toCurrent(currentPortal()));
 	}
 
 	@Override
@@ -147,6 +155,7 @@ public class PortalServiceImpl implements PortalService {
 					OutboxEventConstants.AGGREGATE_PORTAL, portal.getId(),
 					OutboxEventConstants.EVENT_PORTAL_SETTINGS_CHANGED, userId, userName,
 					Map.of("portalId", portal.getId(), "changes", changes)));
+			this.portalCache.changedAfterCommit(portal.getId());
 		}
 		return this.portalMapper.toCurrent(portal);
 	}

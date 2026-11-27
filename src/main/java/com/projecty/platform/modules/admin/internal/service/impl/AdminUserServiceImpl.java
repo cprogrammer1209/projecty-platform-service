@@ -124,7 +124,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 		AdminUser admin = this.userRepository.findById(session.getAdminUserId())
 			.orElseThrow(AdminUserServiceImpl::sessionExpired);
 		if (!admin.isActive()) {
-			session.revoke(now);
+			revoke(session, now);
 			throw sessionExpired();
 		}
 		String newRefreshToken = OpaqueTokenHelper.generate();
@@ -136,7 +136,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 	@Transactional
 	public void logout(String refreshToken) {
 		Instant now = this.clock.instant();
-		findSession(refreshToken).ifPresent((session) -> session.revoke(now));
+		findSession(refreshToken).ifPresent((session) -> revoke(session, now));
 	}
 
 	@Override
@@ -168,6 +168,14 @@ public class AdminUserServiceImpl implements AdminUserService {
 				admin.getFullName(), session.getId());
 		return new AdminSessionTokensDTO(this.tokenWriteService.issueAdminAccessToken(claims), refreshToken,
 				session.expiresAt());
+	}
+
+	/**
+	 * Ends the session and, with it, the access tokens already handed out for it.
+	 */
+	private void revoke(AdminSession session, Instant now) {
+		session.revoke(now);
+		this.tokenWriteService.denySession(session.getId());
 	}
 
 	private Optional<AdminSession> findSession(String refreshToken) {

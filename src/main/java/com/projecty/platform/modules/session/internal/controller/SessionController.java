@@ -4,7 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import com.projecty.platform.common.constants.AppConstants;
+import com.projecty.platform.common.constants.RateLimitConstants;
 import com.projecty.platform.common.dto.AppResponse;
+import com.projecty.platform.common.security.annotation.RateLimit;
 import com.projecty.platform.common.security.helper.RefreshCookieHelper;
 import com.projecty.platform.modules.session.internal.dto.AccessTokenResponseDTO;
 import com.projecty.platform.modules.session.internal.dto.LoginRequestDTO;
@@ -42,6 +44,7 @@ public class SessionController {
 	}
 
 	@PostMapping("/login")
+	@RateLimit(RateLimitConstants.LOGIN)
 	public ResponseEntity<AppResponse<AccessTokenResponseDTO>> login(@Valid @RequestBody LoginRequestDTO request,
 			HttpServletRequest http) {
 		return withCookie(this.sessionService.login(request.email(), request.password(),
@@ -49,6 +52,7 @@ public class SessionController {
 	}
 
 	@PostMapping("/refresh")
+	@RateLimit(RateLimitConstants.REFRESH)
 	public ResponseEntity<AppResponse<AccessTokenResponseDTO>> refresh(
 			@CookieValue(name = AppConstants.REFRESH_COOKIE_NAME, required = false) String refreshToken) {
 		return withCookie(this.sessionService.refresh(refreshToken));

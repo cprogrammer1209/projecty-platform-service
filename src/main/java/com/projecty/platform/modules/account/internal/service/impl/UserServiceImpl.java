@@ -22,6 +22,7 @@ import com.projecty.platform.modules.account.internal.dto.UserPreferencesUpdateD
 import com.projecty.platform.modules.account.internal.entity.AppUser;
 import com.projecty.platform.modules.account.internal.entity.EmailTokenPurpose;
 import com.projecty.platform.modules.account.internal.helper.PasswordPolicyHelper;
+import com.projecty.platform.modules.account.internal.helper.UserCache;
 import com.projecty.platform.modules.account.internal.mapper.UserMapper;
 import com.projecty.platform.modules.account.internal.repository.AppUserRepository;
 import com.projecty.platform.modules.account.internal.service.EmailTokenService;
@@ -62,6 +63,8 @@ public class UserServiceImpl implements UserService {
 
 	private final AccountProperties properties;
 
+	private final UserCache userCache;
+
 	private final Clock clock;
 
 	private final String timingDummyHash;
@@ -69,7 +72,7 @@ public class UserServiceImpl implements UserService {
 	public UserServiceImpl(AppUserRepository repository, EmailTokenService emailTokenService,
 			MemberLookUpService memberLookUpService, AuditWriteService auditWriteService,
 			PasswordEncoder passwordEncoder, PasswordPolicyHelper passwordPolicy, UserMapper userMapper,
-			ApplicationEventPublisher events, AccountProperties properties, Clock clock) {
+			ApplicationEventPublisher events, AccountProperties properties, UserCache userCache, Clock clock) {
 		this.repository = repository;
 		this.emailTokenService = emailTokenService;
 		this.memberLookUpService = memberLookUpService;
@@ -79,6 +82,7 @@ public class UserServiceImpl implements UserService {
 		this.userMapper = userMapper;
 		this.events = events;
 		this.properties = properties;
+		this.userCache = userCache;
 		this.clock = clock;
 		this.timingDummyHash = passwordEncoder.encode(AccountConstants.TIMING_DUMMY_PASSWORD);
 	}
@@ -86,13 +90,14 @@ public class UserServiceImpl implements UserService {
 	@Override
 	@Transactional(readOnly = true)
 	public Optional<UserResponseDTO> findById(UUID userId) {
-		return this.repository.findById(userId).map(this.userMapper::toResponse);
+		return this.userCache.findById(userId, () -> this.repository.findById(userId).map(this.userMapper::toResponse));
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<UserResponseDTO> findByIds(Collection<UUID> userIds) {
-		return this.repository.findAllById(userIds).stream().map(this.userMapper::toResponse).toList();
+		return this.userCache.findByIds(userIds,
+				(ids) -> this.repository.findAllById(ids).stream().map(this.userMapper::toResponse).toList());
 	}
 
 	@Override
@@ -151,6 +156,7 @@ public class UserServiceImpl implements UserService {
 					AccountConstants.MESSAGE_EMAIL_NOT_VERIFIED);
 		}
 		user.recordSuccessfulLogin(now);
+		this.userCache.changedAfterCommit(user.getId());
 		audit(AuditEventConstants.ACTION_LOGIN_SUCCEEDED, user, null);
 		return this.userMapper.toResponse(user);
 	}
@@ -181,6 +187,7 @@ public class UserServiceImpl implements UserService {
 	public void verifyEmail(String token) {
 		UUID userId = this.emailTokenService.redeem(token, EmailTokenPurpose.VERIFY_EMAIL);
 		this.repository.findById(userId).orElseThrow().markEmailVerified(this.clock.instant());
+		this.userCache.changedAfterCommit(userId);
 	}
 
 	@Override
@@ -206,6 +213,7 @@ public class UserServiceImpl implements UserService {
 		AppUser user = this.repository.findById(userId).orElseThrow();
 		this.passwordPolicy.check(newPassword, user.getEmail());
 		user.resetPassword(this.passwordEncoder.encode(newPassword), this.clock.instant());
+		this.userCache.changedAfterCommit(user.getId());
 		audit(AuditEventConstants.ACTION_PASSWORD_RESET, user, "All sessions revoked");
 		this.events.publishEvent(new UserPasswordResetEvent(user.getId()));
 	}
@@ -222,10 +230,12 @@ public class UserServiceImpl implements UserService {
 	@Override
 	@Transactional(readOnly = true)
 	public MeResponseDTO getMe(UUID userId) {
-		AppUser user = this.repository.findById(userId)
-			.orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, AccountConstants.ERROR_USER_NOT_FOUND,
-					AccountConstants.MESSAGE_USER_NOT_FOUND));
-		return this.userMapper.toMe(user, this.memberLookUpService.findMemberships(userId));
+		return this.userCache.me(userId, () -> {
+			AppUser user = this.repository.findById(userId)
+				.orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, AccountConstants.ERROR_USER_NOT_FOUND,
+						AccountConstants.MESSAGE_USER_NOT_FOUND));
+			return this.userMapper.toMe(user, this.memberLookUpService.findMemberships(userId));
+		});
 	}
 
 	@Override
@@ -239,6 +249,7 @@ public class UserServiceImpl implements UserService {
 					Map.of(AccountConstants.FIELD_TIME_ZONE, AccountConstants.MESSAGE_TIME_ZONE_INVALID));
 		}
 		this.repository.findById(userId).orElseThrow().updateTimeZone(timeZone, this.clock.instant());
+		this.userCache.changedAfterCommit(userId);
 		return getMe(userId);
 	}
 

@@ -5,7 +5,9 @@ import java.util.UUID;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
+import com.projecty.platform.common.constants.RateLimitConstants;
 import com.projecty.platform.common.dto.AppResponse;
+import com.projecty.platform.common.security.annotation.RateLimit;
 import com.projecty.platform.modules.admin.api.dto.AdminResponseDTO;
 import com.projecty.platform.modules.admin.internal.constants.AdminConstants;
 import com.projecty.platform.modules.admin.internal.dto.AdminAccessTokenResponseDTO;
@@ -47,6 +49,7 @@ public class AdminAuthController {
 	}
 
 	@PostMapping("/login")
+	@RateLimit(RateLimitConstants.LOGIN)
 	public ResponseEntity<AppResponse<AdminAccessTokenResponseDTO>> login(
 			@Valid @RequestBody AdminLoginRequestDTO request, HttpServletRequest http) {
 		return withCookie(this.adminUserService.login(request.email(), request.password(),
@@ -54,6 +57,7 @@ public class AdminAuthController {
 	}
 
 	@PostMapping("/refresh")
+	@RateLimit(RateLimitConstants.REFRESH)
 	public ResponseEntity<AppResponse<AdminAccessTokenResponseDTO>> refresh(
 			@CookieValue(name = AdminConstants.REFRESH_COOKIE_NAME, required = false) String refreshToken) {
 		return withCookie(this.adminUserService.refresh(refreshToken));

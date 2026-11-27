@@ -4,7 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import com.projecty.platform.common.constants.AppConstants;
+import com.projecty.platform.common.constants.RateLimitConstants;
 import com.projecty.platform.common.dto.AppResponse;
+import com.projecty.platform.common.security.annotation.RateLimit;
 import com.projecty.platform.common.security.helper.RefreshCookieHelper;
 import com.projecty.platform.modules.impersonation.internal.constants.ImpersonationConstants;
 import com.projecty.platform.modules.impersonation.internal.dto.ImpersonationRedeemRequestDTO;
@@ -41,6 +43,7 @@ public class SupportSessionController {
 	 * Opens a support session from the admin console's launch link.
 	 */
 	@PostMapping("/redeem")
+	@RateLimit(RateLimitConstants.TOKEN)
 	public ResponseEntity<AppResponse<SupportSessionTokenResponseDTO>> redeem(
 			@Valid @RequestBody ImpersonationRedeemRequestDTO request, HttpServletRequest http) {
 		IssuedSessionDTO session = this.impersonationService.startSupportSession(request.code(),

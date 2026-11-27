@@ -1,5 +1,6 @@
 package com.projecty.platform.modules.member.internal.constants;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
@@ -92,6 +93,20 @@ public final class MemberConstants {
 	public static final String EMAIL_INVITE_FOOTER = "This invitation expires in 7 days.";
 
 	public static final String EMAIL_SIGNATURE = "— ProjectY";
+
+	/** How long the (fixed) profile list of a portal may be cached. */
+	public static final Duration PROFILES_CACHE_TTL = Duration.ofMinutes(10);
+
+	/** Cached "is this user an active member, with which permissions" answer, one key per portal and user. */
+	public static final String ACCESS_KEY_PREFIX = "platform:access:";
+
+	public static final String ACCESS_ACTIVE = "A";
+
+	public static final String ACCESS_INACTIVE = "I";
+
+	public static final String ACCESS_SEPARATOR = ":";
+
+	public static final String PERMISSION_SEPARATOR = ",";
 
 	private MemberConstants() {
 	}

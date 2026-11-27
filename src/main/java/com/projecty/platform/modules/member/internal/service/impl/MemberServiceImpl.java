@@ -25,6 +25,8 @@ import com.projecty.platform.modules.member.internal.dto.ProfileResponseDTO;
 import com.projecty.platform.modules.member.internal.entity.MemberStatus;
 import com.projecty.platform.modules.member.internal.entity.PortalMember;
 import com.projecty.platform.modules.member.internal.entity.Profile;
+import com.projecty.platform.modules.member.internal.helper.MemberAccessCache;
+import com.projecty.platform.modules.member.internal.helper.MemberResponseCache;
 import com.projecty.platform.modules.member.internal.mapper.MemberMapper;
 import com.projecty.platform.modules.member.internal.repository.PortalMemberRepository;
 import com.projecty.platform.modules.member.internal.repository.ProfileRepository;
@@ -62,12 +64,17 @@ public class MemberServiceImpl implements MemberService {
 
 	private final MemberProperties properties;
 
+	private final MemberAccessCache accessCache;
+
+	private final MemberResponseCache responseCache;
+
 	private final Clock clock;
 
 	public MemberServiceImpl(PortalMemberRepository memberRepository, ProfileRepository profileRepository,
 			UserLookUpService userLookUpService, PortalLookUpService portalLookUpService,
 			AuditWriteService auditWriteService, OutboxWriteService outboxWriteService,
-			RequestPortalContext portalContext, MemberMapper mapper, MemberProperties properties, Clock clock) {
+			RequestPortalContext portalContext, MemberMapper mapper, MemberProperties properties,
+			MemberAccessCache accessCache, MemberResponseCache responseCache, Clock clock) {
 		this.memberRepository = memberRepository;
 		this.profileRepository = profileRepository;
 		this.userLookUpService = userLookUpService;
@@ -77,6 +84,8 @@ public class MemberServiceImpl implements MemberService {
 		this.portalContext = portalContext;
 		this.mapper = mapper;
 		this.properties = properties;
+		this.accessCache = accessCache;
+		this.responseCache = responseCache;
 		this.clock = clock;
 	}
 
@@ -84,14 +93,20 @@ public class MemberServiceImpl implements MemberService {
 	@Transactional(readOnly = true)
 	public MyMembershipResponseDTO getMine(UUID userId) {
 		UUID portalId = this.portalContext.requirePortalId();
-		PortalMember member = findMember(portalId, userId);
-		return this.mapper.toMine(profile(member.getProfileId()), userId.equals(ownerOf(portalId)));
+		return this.responseCache.mine(portalId, userId, () -> {
+			PortalMember member = findMember(portalId, userId);
+			return this.mapper.toMine(profile(member.getProfileId()), userId.equals(ownerOf(portalId)));
+		});
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<MemberResponseDTO> listMembers() {
 		UUID portalId = this.portalContext.requirePortalId();
+		return this.responseCache.members(portalId, () -> loadMembers(portalId));
+	}
+
+	private List<MemberResponseDTO> loadMembers(UUID portalId) {
 		List<PortalMember> members = this.memberRepository.findByPortalIdOrderByJoinedAt(portalId);
 		Map<UUID, UserResponseDTO> users = this.userLookUpService
 			.findByIds(members.stream().map(PortalMember::getUserId).toList())
@@ -111,10 +126,12 @@ public class MemberServiceImpl implements MemberService {
 	@Override
 	@Transactional(readOnly = true)
 	public List<ProfileResponseDTO> listProfiles() {
-		return this.profileRepository.findByPortalIdOrderByCreatedAtAscNameAsc(this.portalContext.requirePortalId())
+		UUID portalId = this.portalContext.requirePortalId();
+		return this.responseCache.profiles(portalId, () -> this.profileRepository
+			.findByPortalIdOrderByCreatedAtAscNameAsc(portalId)
 			.stream()
 			.map(this.mapper::toProfile)
-			.toList();
+			.toList());
 	}
 
 	@Override
@@ -289,6 +306,9 @@ public class MemberServiceImpl implements MemberService {
 			Map<String, Object> payload) {
 		this.outboxWriteService.publish(new OutboxEventCreateDTO(portalId, OutboxEventConstants.AGGREGATE_MEMBER,
 				userId, eventType, actorId, actorName, payload));
+		// Every member change publishes, so this is also the one place that drops the cached access answer.
+		this.accessCache.evictAfterCommit(portalId, userId);
+		this.responseCache.memberChanged(portalId, userId);
 	}
 
 	private static AppException ownerLocked() {

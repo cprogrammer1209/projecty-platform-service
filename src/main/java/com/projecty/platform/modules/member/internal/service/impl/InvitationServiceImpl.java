@@ -28,6 +28,7 @@ import com.projecty.platform.modules.member.internal.entity.InvitationStatus;
 import com.projecty.platform.modules.member.internal.entity.MemberStatus;
 import com.projecty.platform.modules.member.internal.entity.Profile;
 import com.projecty.platform.modules.member.internal.event.InvitationIssuedEvent;
+import com.projecty.platform.modules.member.internal.helper.MemberResponseCache;
 import com.projecty.platform.modules.member.internal.mapper.MemberMapper;
 import com.projecty.platform.modules.member.internal.repository.InvitationRepository;
 import com.projecty.platform.modules.member.internal.repository.PortalMemberRepository;
@@ -78,6 +79,8 @@ public class InvitationServiceImpl implements InvitationService {
 
 	private final MemberProperties properties;
 
+	private final MemberResponseCache responseCache;
+
 	private final Clock clock;
 
 	public InvitationServiceImpl(InvitationRepository invitationRepository, ProfileRepository profileRepository,
@@ -85,7 +88,7 @@ public class InvitationServiceImpl implements InvitationService {
 			UserWriteService userWriteService, PortalLookUpService portalLookUpService,
 			AuditWriteService auditWriteService, OutboxWriteService outboxWriteService,
 			RequestPortalContext portalContext, ApplicationEventPublisher events,
-			MemberMapper mapper, MemberProperties properties, Clock clock) {
+			MemberMapper mapper, MemberProperties properties, MemberResponseCache responseCache, Clock clock) {
 		this.invitationRepository = invitationRepository;
 		this.profileRepository = profileRepository;
 		this.memberRepository = memberRepository;
@@ -99,6 +102,7 @@ public class InvitationServiceImpl implements InvitationService {
 		this.events = events;
 		this.mapper = mapper;
 		this.properties = properties;
+		this.responseCache = responseCache;
 		this.clock = clock;
 	}
 
@@ -106,10 +110,11 @@ public class InvitationServiceImpl implements InvitationService {
 	@Transactional(readOnly = true)
 	public List<InvitationResponseDTO> listPending() {
 		UUID portalId = this.portalContext.requirePortalId();
-		return this.invitationRepository.findByPortalIdAndStatusOrderByCreatedAtDesc(portalId, InvitationStatus.PENDING)
+		return this.responseCache.invitations(portalId, () -> this.invitationRepository
+			.findByPortalIdAndStatusOrderByCreatedAtDesc(portalId, InvitationStatus.PENDING)
 			.stream()
 			.map(this::toResponse)
-			.toList();
+			.toList());
 	}
 
 	@Override
@@ -138,6 +143,7 @@ public class InvitationServiceImpl implements InvitationService {
 		this.outboxWriteService.publish(new OutboxEventCreateDTO(portalId, OutboxEventConstants.AGGREGATE_INVITATION,
 				invitation.getId(), OutboxEventConstants.EVENT_USER_INVITED, actorId, actorName, Map.of("portalId", portalId,
 						"invitationId", invitation.getId(), "profileId", profile.getId(), "invitedByUserId", actorId)));
+		this.responseCache.invitationsChanged(portalId);
 		return toResponse(invitation);
 	}
 
@@ -155,6 +161,7 @@ public class InvitationServiceImpl implements InvitationService {
 		this.outboxWriteService.publish(new OutboxEventCreateDTO(portalId, OutboxEventConstants.AGGREGATE_INVITATION,
 				invitation.getId(), OutboxEventConstants.EVENT_INVITATION_REVOKED, actorId, actorName,
 				Map.of("portalId", portalId, "invitationId", invitation.getId(), "revokedByUserId", actorId)));
+		this.responseCache.invitationsChanged(portalId);
 	}
 
 	@Override
@@ -195,6 +202,7 @@ public class InvitationServiceImpl implements InvitationService {
 	private AcceptedInvitationResponseDTO join(Invitation invitation, UserResponseDTO user) {
 		this.memberService.addMember(invitation.getPortalId(), user.id(), invitation.getProfileId());
 		invitation.accept(user.id(), this.clock.instant());
+		this.responseCache.invitationsChanged(invitation.getPortalId());
 		this.auditWriteService.record(new AuditEventCreateDTO(AuditEventConstants.CATEGORY_ADMIN,
 				AuditEventConstants.ACTION_INVITATION_ACCEPTED, AuditEventConstants.ACTOR_USER, user.id(),
 				user.fullName(), invitation.getPortalId(), user.id(), user.fullName(), null));

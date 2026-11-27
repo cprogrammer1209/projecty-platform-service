@@ -15,6 +15,9 @@ import com.projecty.platform.modules.member.api.dto.PortalMembershipResponseDTO;
 import com.projecty.platform.modules.member.internal.entity.MemberStatus;
 import com.projecty.platform.modules.member.internal.entity.PortalMember;
 import com.projecty.platform.modules.member.internal.entity.Profile;
+import com.projecty.platform.modules.member.internal.helper.MemberAccessCache;
+import com.projecty.platform.modules.member.internal.helper.MemberAccessCache.Access;
+import com.projecty.platform.modules.member.internal.helper.MemberResponseCache;
 import com.projecty.platform.modules.member.internal.mapper.MemberMapper;
 import com.projecty.platform.modules.member.internal.repository.PortalMemberRepository;
 import com.projecty.platform.modules.member.internal.repository.ProfileRepository;
@@ -36,18 +39,25 @@ public class MembershipServiceImpl implements MembershipService {
 
 	private final MemberMapper mapper;
 
+	private final MemberAccessCache accessCache;
+
+	private final MemberResponseCache responseCache;
+
 	public MembershipServiceImpl(PortalMemberRepository memberRepository, ProfileRepository profileRepository,
-			PortalLookUpService portalLookUpService, MemberMapper mapper) {
+			PortalLookUpService portalLookUpService, MemberMapper mapper, MemberAccessCache accessCache,
+			MemberResponseCache responseCache) {
 		this.memberRepository = memberRepository;
 		this.profileRepository = profileRepository;
 		this.portalLookUpService = portalLookUpService;
 		this.mapper = mapper;
+		this.accessCache = accessCache;
+		this.responseCache = responseCache;
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<UUID> findActivePortalIds(UUID userId) {
-		return this.memberRepository.findActivePortalIds(userId);
+		return this.responseCache.activePortalIds(userId, () -> this.memberRepository.findActivePortalIds(userId));
 	}
 
 	@Override
@@ -77,7 +87,7 @@ public class MembershipServiceImpl implements MembershipService {
 	@Override
 	@Transactional(readOnly = true)
 	public boolean isActiveMember(UUID portalId, UUID userId) {
-		return this.memberRepository.existsByPortalIdAndUserIdAndStatus(portalId, userId, MemberStatus.ACTIVE);
+		return access(portalId, userId).active();
 	}
 
 	@Override
@@ -93,11 +103,25 @@ public class MembershipServiceImpl implements MembershipService {
 	@Override
 	@Transactional(readOnly = true)
 	public Set<String> permissions(UUID portalId, UUID userId) {
+		return access(portalId, userId).permissions();
+	}
+
+	/** One cached answer serves both per-request checks (active member, permissions). */
+	private Access access(UUID portalId, UUID userId) {
+		return this.accessCache.find(portalId, userId).orElseGet(() -> {
+			Access loaded = load(portalId, userId);
+			this.accessCache.put(portalId, userId, loaded);
+			return loaded;
+		});
+	}
+
+	private Access load(UUID portalId, UUID userId) {
 		return this.memberRepository.findByPortalIdAndUserId(portalId, userId)
 			.filter(PortalMember::isActive)
-			.flatMap((m) -> this.profileRepository.findById(m.getProfileId()))
-			.map((profile) -> Set.copyOf(profile.getPermissions()))
-			.orElse(Set.of());
+			.map((m) -> new Access(true, this.profileRepository.findById(m.getProfileId())
+				.map((profile) -> Set.copyOf(profile.getPermissions()))
+				.orElse(Set.of())))
+			.orElseGet(Access::none);
 	}
 
 	private Map<UUID, Profile> profilesById(List<UUID> profileIds) {

@@ -4,7 +4,9 @@ import java.util.UUID;
 
 import jakarta.validation.Valid;
 
+import com.projecty.platform.common.constants.RateLimitConstants;
 import com.projecty.platform.common.dto.AppResponse;
+import com.projecty.platform.common.security.annotation.RateLimit;
 import com.projecty.platform.modules.member.internal.dto.AcceptedInvitationResponseDTO;
 import com.projecty.platform.modules.member.internal.dto.InvitationAcceptDTO;
 import com.projecty.platform.modules.member.internal.dto.InvitationAcceptNewDTO;
@@ -38,6 +40,7 @@ public class InvitationAcceptController {
 	}
 
 	@PostMapping("/api/auth/invitations/accept-new")
+	@RateLimit(RateLimitConstants.TOKEN)
 	public AppResponse<AcceptedInvitationResponseDTO> acceptAsNewUser(
 			@Valid @RequestBody InvitationAcceptNewDTO request) {
 		return AppResponse.ok(this.invitationService.acceptAsNewUser(request));
